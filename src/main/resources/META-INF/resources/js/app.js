@@ -15,6 +15,7 @@ document.querySelectorAll('.tab').forEach(tab => {
 
         // Load data for the tab
         if (tabName === 'dashboard') loadDashboard();
+        else if (tabName === 'templates') loadTemplates();
         else if (tabName === 'endpoints') loadEndpoints();
         else if (tabName === 'logs') loadLogs();
     });
@@ -730,6 +731,11 @@ document.querySelectorAll('.tab').forEach(tab => {
         if (tabName === 'blocks') {
             loadBlocks();
         }
+
+        // Load templates when templates tab is opened
+        if (tabName === 'templates') {
+            loadTemplates();
+        }
     };
 });
 
@@ -1021,6 +1027,163 @@ async function stopBlock(id) {
         console.log('[info] Block gestopt - alle endpoints zijn nu inactief');
     } catch (error) {
         alert('Error bij stoppen block: ' + error.message);
+    }
+}
+
+// === TEMPLATES FUNCTIONALITY ===
+
+let templates = [];
+
+// Load templates
+async function loadTemplates() {
+    try {
+        templates = await fetch('/api/templates').then(r => r.json());
+        const container = document.getElementById('templates-list');
+
+        if (templates.length === 0) {
+            container.innerHTML = '<p>Geen templates beschikbaar</p>';
+            return;
+        }
+
+        const icons = {
+            'rest-api': '🌐',
+            'graphql': '📊',
+            'oauth2': '🔐',
+            'webhook': '🪝',
+            'sftp-server': '📁',
+            'message-queue': '📬',
+            'sql-database': '🗄️'
+        };
+
+        container.innerHTML = templates.map(template => `
+            <div class="template-card" onclick="useTemplate('${template.id}')">
+                <div class="template-card-header">
+                    <div class="template-card-icon">${icons[template.id] || '📦'}</div>
+                    <div class="template-card-title">${template.name}</div>
+                </div>
+                <div class="template-card-protocol">${template.protocol}</div>
+                <div class="template-card-description">${template.description}</div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading templates:', error);
+        document.getElementById('templates-list').innerHTML = '<p>Error loading templates</p>';
+    }
+}
+
+// Use template to create endpoint
+async function useTemplate(templateId) {
+    try {
+        const response = await fetch(`/api/templates/${templateId}`);
+        const template = await response.json();
+
+        // Import the template as a new endpoint
+        const importResponse = await fetch('/api/import-export/import-single', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(template)
+        });
+
+        if (!importResponse.ok) {
+            throw new Error('Failed to create endpoint from template');
+        }
+
+        const created = await importResponse.json();
+        alert(`Endpoint "${created.name}" aangemaakt!`);
+
+        // Switch to endpoints tab and reload
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelector('[data-tab="endpoints"]').classList.add('active');
+        document.getElementById('endpoints').classList.add('active');
+
+        loadEndpoints();
+        loadDashboard();
+    } catch (error) {
+        alert('Error bij gebruiken template: ' + error.message);
+    }
+}
+
+// === IMPORT/EXPORT FUNCTIONALITY ===
+
+// Export all endpoints
+async function exportAllEndpoints() {
+    try {
+        const response = await fetch('/api/import-export/export');
+        const data = await response.json();
+
+        // Create download link
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'blockmock-export-' + new Date().toISOString().split('T')[0] + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        console.log('[success] Endpoints geëxporteerd');
+    } catch (error) {
+        alert('Error bij exporteren endpoints: ' + error.message);
+    }
+}
+
+// Export single endpoint
+async function exportEndpoint(id) {
+    try {
+        const response = await fetch(`/api/import-export/export/${id}`);
+        const data = await response.json();
+
+        // Create download link
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'endpoint-' + id + '.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        console.log('[success] Endpoint geëxporteerd');
+    } catch (error) {
+        alert('Error bij exporteren endpoint: ' + error.message);
+    }
+}
+
+// Import endpoints from file
+async function importEndpoints(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        // Check if it's array or single object
+        const endpoints = Array.isArray(data) ? data : [data];
+
+        const response = await fetch('/api/import-export/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(endpoints)
+        });
+
+        if (!response.ok) {
+            throw new Error('Import failed: ' + response.statusText);
+        }
+
+        const result = await response.json();
+        alert(`Successfully imported ${result.imported} endpoint(s)`);
+
+        // Reset file input and reload endpoints
+        event.target.value = '';
+        loadEndpoints();
+        loadDashboard();
+    } catch (error) {
+        alert('Error bij importeren endpoints: ' + error.message);
+        event.target.value = '';
     }
 }
 

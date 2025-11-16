@@ -107,6 +107,14 @@ public class MockEndpointService {
     }
 
     @Transactional
+    public void toggleEnabled(Long id, boolean enabled) {
+        MockEndpoint endpoint = MockEndpoint.findById(id);
+        if (endpoint != null) {
+            endpoint.setEnabled(enabled);
+        }
+    }
+
+    @Transactional
     public MockResponse addResponse(Long endpointId, MockResponse response) {
         MockEndpoint endpoint = MockEndpoint.findById(endpointId);
         if (endpoint == null) {

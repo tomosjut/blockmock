@@ -74,6 +74,12 @@
             <artifactId>quarkus-webjars-locator</artifactId>
         </dependency>
 
+        <!-- OpenAPI/Swagger -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-openapi</artifactId>
+        </dependency>
+
         <!-- Utilities -->
         <dependency>
             <groupId>io.quarkus</groupId>

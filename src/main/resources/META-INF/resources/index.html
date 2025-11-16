@@ -15,6 +15,7 @@
 
         <nav class="tabs">
             <button class="tab active" data-tab="dashboard">Dashboard</button>
+            <button class="tab" data-tab="templates">Templates</button>
             <button class="tab" data-tab="blocks">Blocks</button>
             <button class="tab" data-tab="endpoints">Mock Endpoints</button>
             <button class="tab" data-tab="logs">Request Logs</button>
@@ -54,6 +55,13 @@
                 </div>
             </div>
 
+            <!-- Templates Tab -->
+            <div id="templates" class="tab-content">
+                <h2>Endpoint Templates</h2>
+                <p>Kies een voorgedefinieerde template om snel een endpoint aan te maken:</p>
+                <div id="templates-list" class="templates-grid"></div>
+            </div>
+
             <!-- Blocks Tab -->
             <div id="blocks" class="tab-content">
                 <div class="header-row">
@@ -67,7 +75,12 @@
             <div id="endpoints" class="tab-content">
                 <div class="header-row">
                     <h2>Mock Endpoints</h2>
-                    <button class="btn btn-primary" onclick="showCreateEndpoint()">+ Nieuwe Mock</button>
+                    <div>
+                        <button class="btn btn-secondary" onclick="exportAllEndpoints()">📥 Export All</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()">📤 Import</button>
+                        <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importEndpoints(event)">
+                        <button class="btn btn-primary" onclick="showCreateEndpoint()">+ Nieuwe Mock</button>
+                    </div>
                 </div>
                 <div id="endpoints-list"></div>
             </div>

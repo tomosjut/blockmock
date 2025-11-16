@@ -1,154 +1,311 @@
-# BlockMock
+# 🧱 BlockMock
 
-Een generieke mock server die verschillende protocollen en communicatie patterns ondersteunt.
+**Een krachtige multi-protocol mock server voor integration testing**
 
-## Features
+BlockMock is een generieke mock server die verschillende protocollen en communicatie patterns ondersteunt. Perfect voor het testen van je applicaties zonder afhankelijk te zijn van externe services.
 
-- **Meerdere protocollen**: HTTP(S), SFTP, AMQP, MQTT (in ontwikkeling)
-- **Communicatie patterns**: Request/Reply, Fire/Forget, Pub/Sub
-- **Flexibele matching**: Path, headers, query params, body matching
-- **Request logging**: Alle inkomende requests worden gelogd
-- **Web UI**: Vaadin-based management interface
-- **REST API**: Voor programmatische configuratie
+## ✨ Features
 
-## Tech Stack
+### 🌐 Multi-Protocol Support
+- **HTTP/HTTPS** - REST API mocking met geavanceerde response matching
+- **SFTP** - File server mocking voor upload/download testing
+- **AMQP/RabbitMQ** - Message queue mocking
+- **SQL Databases** - PostgreSQL, MySQL, SQL Server, Oracle (met stored procedures!)
 
-- **Backend**: Quarkus 3.17.4, Java 21
-- **Frontend**: Vaadin 24.5.5
-- **Database**: PostgreSQL
+### 🎯 Geavanceerde Functionaliteit
+- **📥 Import/Export** - Exporteer en importeer endpoints als JSON
+- **📋 Templates** - Voorgedefinieerde templates voor snelle setup (REST API, GraphQL, OAuth2, etc.)
+- **🎬 Scenarios** - Sequentiële endpoint activatie voor complexe testscenarios
+- **📊 Metrics & Monitoring** - Real-time statistics per endpoint
+- **🔗 Blocks** - Groupeer endpoints voor eenvoudig beheer
+- **📖 OpenAPI/Swagger** - Automatische API documentatie
+
+### 🎨 Advanced HTTP Mocking
+- Response matching op headers, query parameters en body
+- Regex support voor flexibele path matching
+- Multiple responses per endpoint met priority
+- Configurable delays voor latency simulation
+- Custom headers en status codes
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Java 21+
+- Docker & Docker Compose
+- Maven 3.8+
+
+### Installatie
+
+```bash
+# Clone de repository
+git clone https://github.com/yourusername/blockmock.git
+cd blockmock
+
+# Start de applicatie
+./start.sh
+```
+
+De applicatie is nu beschikbaar op:
+- **Web UI**: http://localhost:8080
+- **Swagger UI**: http://localhost:8080/swagger-ui
+- **OpenAPI Spec**: http://localhost:8080/openapi
+
+## 📖 Gebruikshandleiding
+
+### HTTP/HTTPS Mocking
+
+1. Ga naar de **Mock Endpoints** tab
+2. Klik op **+ Nieuwe Mock**
+3. Kies protocol **HTTP** of **HTTPS**
+4. Configureer je endpoint:
+   - **Method**: GET, POST, PUT, DELETE, etc.
+   - **Path**: `/api/users` (met regex support)
+   - **Responses**: Meerdere responses met matching criteria
+
+**Voorbeeld**: Mock een REST API
+```json
+{
+  "name": "User API",
+  "protocol": "HTTP",
+  "httpConfig": {
+    "method": "GET",
+    "path": "/api/users"
+  },
+  "responses": [
+    {
+      "responseStatusCode": 200,
+      "responseBody": "{\"users\": [{\"id\": 1, \"name\": \"John\"}]}",
+      "responseHeaders": {
+        "Content-Type": "application/json"
+      }
+    }
+  ]
+}
+```
+
+**Toegang**: `http://localhost:8080/mock/http/api/users`
+
+### SFTP Mocking
+
+Configureer een SFTP server voor file operations testing:
+
+```json
+{
+  "name": "SFTP File Server",
+  "protocol": "SFTP",
+  "sftpConfig": {
+    "port": 2222,
+    "operation": "UPLOAD",
+    "pathPattern": "/uploads/*",
+    "username": "testuser",
+    "password": "testpass"
+  }
+}
+```
+
+**Verbinden**: `sftp -P 2222 testuser@localhost`
+
+### SQL Database Mocking
+
+Test je database code met echte database containers:
+
+```json
+{
+  "name": "PostgreSQL Test DB",
+  "protocol": "SQL",
+  "sqlConfig": {
+    "databaseType": "POSTGRESQL",
+    "databaseName": "testdb",
+    "username": "testuser",
+    "password": "testpass",
+    "initScript": "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(100)); INSERT INTO users (name) VALUES ('John Doe');"
+  }
+}
+```
+
+**JDBC URL** wordt gelogd in de console na het starten.
+
+### AMQP/RabbitMQ Mocking
+
+Mock message queues voor event-driven architectures:
+
+```json
+{
+  "name": "Order Queue",
+  "protocol": "AMQP",
+  "amqpConfig": {
+    "exchangeName": "orders",
+    "exchangeType": "topic",
+    "queueName": "order.created",
+    "routingKey": "order.#"
+  }
+}
+```
+
+## 🎨 Templates
+
+Gebruik voorgedefinieerde templates voor snelle setup:
+
+- **REST API** - Standard REST API endpoint
+- **GraphQL** - GraphQL endpoint
+- **OAuth2** - OAuth2 token endpoint
+- **Webhook** - Webhook receiver
+- **SFTP Server** - File server
+- **Message Queue** - AMQP queue
+- **SQL Database** - PostgreSQL database
+
+Ga naar de **Templates** tab en klik op een template om deze te gebruiken.
+
+## 🎬 Scenarios
+
+Maak sequenties van endpoint activaties voor complexe test flows:
+
+```json
+{
+  "name": "Database Migration Test",
+  "steps": [
+    {
+      "stepOrder": 0,
+      "action": "ENABLE",
+      "mockEndpoint": {"id": 1}
+    },
+    {
+      "stepOrder": 1,
+      "action": "DELAY",
+      "delayMs": 1000
+    },
+    {
+      "stepOrder": 2,
+      "action": "DISABLE",
+      "mockEndpoint": {"id": 1}
+    }
+  ]
+}
+```
+
+Voer scenarios uit via de API of web UI.
+
+## 📊 Metrics & Monitoring
+
+Monitor je endpoints real-time:
+
+- **Total Requests** - Totaal aantal requests
+- **Matched/Unmatched** - Success rate
+- **Last Request** - Laatste request timestamp
+- **Avg Response Time** - Gemiddelde response tijd
+
+**API Endpoint**: `GET /api/metrics`
+
+## 📥 Import/Export
+
+### Exporteren
+```bash
+# Alle endpoints
+curl http://localhost:8080/api/import-export/export > endpoints.json
+
+# Enkele endpoint
+curl http://localhost:8080/api/import-export/export/1 > endpoint.json
+```
+
+### Importeren
+```bash
+curl -X POST http://localhost:8080/api/import-export/import \
+  -H "Content-Type": application/json" \
+  -d @endpoints.json
+```
+
+## 🔗 Blocks
+
+Groupeer gerelateerde endpoints:
+
+1. Ga naar **Blocks** tab
+2. Maak een nieuwe block
+3. Selecteer endpoints
+4. Start/stop alle endpoints in een block tegelijk
+
+Perfect voor het beheren van complete test suites.
+
+## 🛠️ API Documentatie
+
+Volledige API documentatie is beschikbaar via:
+- **Swagger UI**: http://localhost:8080/swagger-ui
+- **OpenAPI Spec**: http://localhost:8080/openapi
+
+## 🏗️ Architectuur
+
+**Tech Stack:**
+- **Framework**: Quarkus 3.17.4
+- **Database**: PostgreSQL 16
 - **ORM**: Hibernate Panache
 - **Migrations**: Flyway
+- **Containers**: Testcontainers
+- **Message Broker**: RabbitMQ
+- **SFTP**: Apache SSHD
 
-## Vereisten
-
-- Java 21
-- Maven 3.8+
-- PostgreSQL 12+
-
-## Database Setup
-
-Maak een PostgreSQL database aan:
-
-```sql
-CREATE DATABASE blockmock;
-CREATE USER blockmock WITH PASSWORD 'blockmock';
-GRANT ALL PRIVILEGES ON DATABASE blockmock TO blockmock;
+**Project Structure:**
+```
+blockmock/
+├── src/main/java/nl/blockmock/
+│   ├── domain/        # JPA entities
+│   ├── resource/      # REST endpoints
+│   └── service/       # Business logic
+├── src/main/resources/
+│   ├── db/migration/  # Flyway migrations
+│   └── META-INF/resources/
+│       ├── css/       # Stylesheets
+│       └── js/        # JavaScript
+└── docker-compose.yml # PostgreSQL container
 ```
 
-Of pas de database configuratie aan in `src/main/resources/application.properties`.
+## 🔧 Configuratie
 
-## Applicatie starten
+Configuratie in `src/main/resources/application.properties`:
 
-### Development mode
+```properties
+# HTTP Port
+quarkus.http.port=8080
+
+# Database
+quarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/blockmock
+quarkus.datasource.username=blockmock
+quarkus.datasource.password=blockmock
+
+# OpenAPI
+quarkus.swagger-ui.path=/swagger-ui
+```
+
+## 📝 Development
 
 ```bash
-mvn quarkus:dev
+# Development mode (live reload)
+./mvnw quarkus:dev
+
+# Build
+./mvnw clean package
+
+# Run tests
+./mvnw test
+
+# Build Docker image
+./mvnw package -Dquarkus.container-image.build=true
 ```
 
-De applicatie is beschikbaar op:
-- Web UI: http://localhost:8080
-- Mock endpoints: http://localhost:8080/mock/http/*
-- REST API: http://localhost:8080/api/*
+## 🤝 Contributing
 
-### Production build
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-```bash
-mvn clean package
-java -jar target/quarkus-app/quarkus-run.jar
-```
+## 📄 License
 
-## Gebruik
+This project is licensed under the MIT License.
 
-### Mock Endpoint aanmaken via UI
+## 🙏 Credits
 
-1. Open de Web UI op http://localhost:8080
-2. Ga naar de tab "Mock Endpoints"
-3. Klik op "+ Nieuwe Mock"
-4. Vul het formulier in:
-   - **Naam**: Beschrijvende naam voor je mock
-   - **Protocol**: Kies HTTP/HTTPS
-   - **Pattern**: Request/Reply
-   - **HTTP Method**: GET, POST, PUT, DELETE, etc.
-   - **Path**: Het pad waarop de mock reageert (bijv. `/api/users`)
-   - **Response Status**: HTTP status code (bijv. 200)
-   - **Response Body**: De body die teruggegeven wordt (JSON, XML, text)
-   - **Response Headers**: Optionele headers als JSON object
-   - **Delay**: Simuleer latency in milliseconden
-5. Klik op "Opslaan"
+Gebouwd met:
+- [Quarkus](https://quarkus.io/)
+- [Testcontainers](https://www.testcontainers.org/)
+- [Apache SSHD](https://mina.apache.org/sshd-project/)
+- [RabbitMQ](https://www.rabbitmq.com/)
 
-### Mock bewerken of verwijderen
+---
 
-- Klik op het **✏️ icoon** om een mock te bewerken
-- Klik op **▶️/⏸️** om een mock te activeren/deactiveren
-- Klik op **🗑️** om een mock te verwijderen
-
-### Request Logs bekijken
-
-1. Ga naar de tab "Request Logs"
-2. Logs worden automatisch ververst elke 5 seconden
-3. Klik op een log regel om details te zien:
-   - Volledige request headers, query params, en body
-   - Response details
-   - Matching status
-
-### HTTP Mock voorbeeld
-
-Een HTTP mock endpoint reageert op requests naar `/mock/http/{jouw-path}`.
-
-Bijvoorbeeld:
-- Mock configuratie: `GET /api/users`
-- Bereikbaar via: `http://localhost:8080/mock/http/api/users`
-
-## API Endpoints
-
-### Management API
-
-- `GET /api/endpoints` - Lijst alle mock endpoints
-- `POST /api/endpoints` - Maak nieuwe mock endpoint
-- `GET /api/endpoints/{id}` - Haal specifieke endpoint op
-- `PUT /api/endpoints/{id}` - Update endpoint
-- `DELETE /api/endpoints/{id}` - Verwijder endpoint
-- `POST /api/endpoints/{id}/toggle` - Toggle enabled status
-
-### Request Logs
-
-- `GET /api/logs` - Alle request logs
-- `GET /api/logs/recent?limit=100` - Recente logs
-- `GET /api/logs/endpoint/{id}` - Logs voor specifiek endpoint
-- `GET /api/logs/stats` - Statistieken
-- `DELETE /api/logs` - Wis alle logs
-
-## Roadmap
-
-### Fase 1: Core & HTTP (✓ Voltooid)
-- [x] Project setup
-- [x] Database schema
-- [x] Domain model
-- [x] HTTP protocol handler
-- [x] Basic HTML/JS UI
-
-### Fase 2: UI Verbetering (✓ Voltooid)
-- [x] Mock endpoint create/edit forms
-- [x] Response configuratie UI
-- [x] Request log detail view
-- [x] Auto-refresh voor logs (elke 5 seconden)
-
-### Fase 3: SFTP Protocol
-- [ ] SFTP server implementatie
-- [ ] File mocking
-- [ ] SFTP-specifieke UI
-
-### Fase 4: AMQP Protocol
-- [ ] AMQP listener
-- [ ] Queue/Exchange mocking
-- [ ] Pub/Sub pattern
-
-### Fase 5: Advanced Features
-- [ ] Import/export configuraties
-- [ ] Scenario's
-- [ ] Stateful mocks
-- [ ] Template engine (Handlebars/FreeMarker)
-
-## Licentie
-
-MIT
+**Happy Mocking!** 🎭

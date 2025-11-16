@@ -706,3 +706,60 @@ form {
     font-size: 0.85em;
     color: #6b7280;
 }
+
+/* Templates Grid */
+.templates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.template-card {
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.template-card:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    transform: translateY(-2px);
+}
+
+.template-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.template-card-icon {
+    font-size: 2em;
+}
+
+.template-card-title {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.template-card-protocol {
+    display: inline-block;
+    padding: 4px 12px;
+    background: #667eea;
+    color: white;
+    border-radius: 12px;
+    font-size: 0.75em;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.template-card-description {
+    color: #6b7280;
+    font-size: 0.9em;
+    line-height: 1.5;
+}

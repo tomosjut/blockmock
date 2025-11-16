@@ -33,6 +33,22 @@ public class MockEndpoint extends PanacheEntity {
     @Column(nullable = false)
     private Boolean enabled = true;
 
+    // Metrics/Statistics
+    @Column(name = "total_requests")
+    private Long totalRequests = 0L;
+
+    @Column(name = "matched_requests")
+    private Long matchedRequests = 0L;
+
+    @Column(name = "unmatched_requests")
+    private Long unmatchedRequests = 0L;
+
+    @Column(name = "last_request_at")
+    private LocalDateTime lastRequestAt;
+
+    @Column(name = "average_response_time_ms")
+    private Integer averageResponseTimeMs = 0;
+
     @JsonManagedReference("endpoint-httpconfig")
     @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
     private HttpConfig httpConfig;
