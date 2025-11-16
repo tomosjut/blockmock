@@ -1,0 +1,2 @@
+-- Add sequence for block table
+CREATE SEQUENCE IF NOT EXISTS block_SEQ START WITH 1 INCREMENT BY 50;

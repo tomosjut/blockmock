@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlockMock - Mock Server</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧱 BlockMock</h1>
+            <p>Generieke mock server voor verschillende protocollen</p>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab active" data-tab="dashboard">Dashboard</button>
+            <button class="tab" data-tab="blocks">Blocks</button>
+            <button class="tab" data-tab="endpoints">Mock Endpoints</button>
+            <button class="tab" data-tab="logs">Request Logs</button>
+        </nav>
+
+        <main>
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-content active">
+                <h2>Dashboard</h2>
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-label">Mock Endpoints</div>
+                        <div class="stat-value" id="stat-endpoints">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Total Requests</div>
+                        <div class="stat-value" id="stat-total-requests">-</div>
+                    </div>
+                    <div class="stat-card success">
+                        <div class="stat-label">Matched</div>
+                        <div class="stat-value" id="stat-matched">-</div>
+                    </div>
+                    <div class="stat-card error">
+                        <div class="stat-label">Unmatched</div>
+                        <div class="stat-value" id="stat-unmatched">-</div>
+                    </div>
+                </div>
+                <div class="info-box">
+                    <h3>Welkom bij BlockMock</h3>
+                    <p>Een generieke mock server die verschillende protocollen en communicatie patterns ondersteunt.</p>
+                    <h4>Quick Start:</h4>
+                    <ul>
+                        <li>Ga naar <strong>Mock Endpoints</strong> om een nieuwe mock aan te maken</li>
+                        <li>HTTP mocks zijn bereikbaar op: <code>http://localhost:8080/mock/http/jouw-path</code></li>
+                        <li>Bekijk <strong>Request Logs</strong> om inkomende requests te zien</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Blocks Tab -->
+            <div id="blocks" class="tab-content">
+                <div class="header-row">
+                    <h2>Blocks</h2>
+                    <button class="btn btn-primary" onclick="showCreateBlock()">+ Nieuwe Block</button>
+                </div>
+                <div id="blocks-list"></div>
+            </div>
+
+            <!-- Endpoints Tab -->
+            <div id="endpoints" class="tab-content">
+                <div class="header-row">
+                    <h2>Mock Endpoints</h2>
+                    <button class="btn btn-primary" onclick="showCreateEndpoint()">+ Nieuwe Mock</button>
+                </div>
+                <div id="endpoints-list"></div>
+            </div>
+
+            <!-- Logs Tab -->
+            <div id="logs" class="tab-content">
+                <div class="header-row">
+                    <h2>Request Logs</h2>
+                    <button class="btn btn-secondary" onclick="refreshLogs()">🔄 Vernieuwen</button>
+                    <button class="btn btn-danger" onclick="clearLogs()">🗑️ Wissen</button>
+                </div>
+                <div id="logs-list"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Create/Edit Endpoint -->
+    <div id="endpoint-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title">Nieuwe Mock Endpoint</h2>
+                <button class="close" onclick="closeEndpointModal()">&times;</button>
+            </div>
+            <form id="endpoint-form" onsubmit="saveEndpoint(event)">
+                <div class="form-group">
+                    <label for="endpoint-name">Naam *</label>
+                    <input type="text" id="endpoint-name" required placeholder="Bijv. User API Mock">
+                </div>
+
+                <div class="form-group">
+                    <label for="endpoint-description">Beschrijving</label>
+                    <textarea id="endpoint-description" rows="2" placeholder="Optionele beschrijving van deze mock"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="endpoint-protocol">Protocol *</label>
+                        <select id="endpoint-protocol" required onchange="toggleProtocolFields()">
+                            <option value="HTTP">HTTP</option>
+                            <option value="HTTPS">HTTPS</option>
+                            <option value="SFTP">SFTP</option>
+                            <option value="AMQP">AMQP/RabbitMQ</option>
+                            <option value="SQL">SQL Database</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="endpoint-pattern">Pattern *</label>
+                        <select id="endpoint-pattern" required>
+                            <option value="REQUEST_REPLY">Request/Reply</option>
+                            <option value="FIRE_FORGET" disabled>Fire & Forget (binnenkort)</option>
+                            <option value="PUB_SUB" disabled>Pub/Sub (binnenkort)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- HTTP specific fields -->
+                <div id="http-fields">
+                    <h3 class="section-title">HTTP Configuratie</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="http-method">HTTP Method *</label>
+                            <select id="http-method" required>
+                                <option value="GET">GET</option>
+                                <option value="POST">POST</option>
+                                <option value="PUT">PUT</option>
+                                <option value="DELETE">DELETE</option>
+                                <option value="PATCH">PATCH</option>
+                                <option value="HEAD">HEAD</option>
+                                <option value="OPTIONS">OPTIONS</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="http-path">Path *</label>
+                            <input type="text" id="http-path" required placeholder="/api/users">
+                            <small>Mock bereikbaar op: /mock/http{path}</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="http-path-regex">
+                            Path is een regex pattern
+                        </label>
+                    </div>
+
+                    <div class="section-header">
+                        <h3 class="section-title">Responses</h3>
+                        <button type="button" class="btn btn-small btn-primary" onclick="addResponse()">+ Response</button>
+                    </div>
+
+                    <div id="responses-container">
+                        <!-- Responses will be added here dynamically -->
+                    </div>
+                </div>
+
+                <!-- SFTP specific fields -->
+                <div id="sftp-fields" style="display: none;">
+                    <h3 class="section-title">SFTP Configuratie</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="sftp-port">Port *</label>
+                            <input type="number" id="sftp-port" value="2222" min="1" max="65535">
+                            <small>SFTP server poort (default: 2222)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sftp-operation">Operation *</label>
+                            <select id="sftp-operation">
+                                <option value="DOWNLOAD">Download</option>
+                                <option value="UPLOAD">Upload</option>
+                                <option value="LIST">List Directory</option>
+                                <option value="DELETE">Delete</option>
+                                <option value="MKDIR">Create Directory</option>
+                                <option value="RMDIR">Remove Directory</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="sftp-path">Path Pattern *</label>
+                        <input type="text" id="sftp-path" placeholder="/uploads/*.pdf">
+                        <small>Path pattern (gebruik * als wildcard)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="sftp-path-regex">
+                            Path is een regex pattern
+                        </label>
+                    </div>
+
+                    <h4 class="section-title">Authenticatie</h4>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="sftp-allow-anonymous" onchange="toggleSftpAuth()">
+                            Anonieme toegang toestaan
+                        </label>
+                    </div>
+
+                    <div id="sftp-auth-fields">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="sftp-username">Username</label>
+                                <input type="text" id="sftp-username" placeholder="testuser">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="sftp-password">Password</label>
+                                <input type="text" id="sftp-password" placeholder="testpass">
+                            </div>
+                        </div>
+                    </div>
+
+                    <h4 class="section-title">Mock Response</h4>
+
+                    <div class="form-group">
+                        <label for="sftp-response-content">Response Content</label>
+                        <textarea id="sftp-response-content" rows="6" placeholder="Voor DOWNLOAD: bestandsinhoud&#10;Voor LIST: JSON array van bestanden&#10;Voor andere operaties: optioneel bericht"></textarea>
+                        <small>Voor DOWNLOAD: bestandsinhoud om te retourneren. Voor LIST: JSON array zoals: [{"name": "file.txt", "size": 1234, "isDirectory": false}]</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="sftp-success" checked>
+                            Operatie succesvol
+                        </label>
+                        <small>Als uitgeschakeld, zal de operatie falen met een error</small>
+                    </div>
+                </div>
+
+                <!-- AMQP specific fields -->
+                <div id="amqp-fields" style="display: none;">
+                    <h3 class="section-title">AMQP/RabbitMQ Configuratie</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="amqp-host">Host *</label>
+                            <input type="text" id="amqp-host" value="localhost">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="amqp-port">Port *</label>
+                            <input type="number" id="amqp-port" value="5672" min="1" max="65535">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="amqp-vhost">Virtual Host</label>
+                            <input type="text" id="amqp-vhost" value="/" placeholder="/">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="amqp-operation">Operation *</label>
+                            <select id="amqp-operation">
+                                <option value="PUBLISH">Publish</option>
+                                <option value="CONSUME">Consume</option>
+                                <option value="BOTH">Both</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <h4 class="section-title">Exchange</h4>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="amqp-exchange-name">Exchange Name *</label>
+                            <input type="text" id="amqp-exchange-name" placeholder="my-exchange" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="amqp-exchange-type">Exchange Type *</label>
+                            <select id="amqp-exchange-type">
+                                <option value="DIRECT">Direct</option>
+                                <option value="FANOUT">Fanout</option>
+                                <option value="TOPIC">Topic</option>
+                                <option value="HEADERS">Headers</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="amqp-exchange-durable" checked>
+                                Durable Exchange
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="amqp-exchange-autodelete">
+                                Auto-delete Exchange
+                            </label>
+                        </div>
+                    </div>
+
+                    <h4 class="section-title">Queue</h4>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="amqp-queue-name">Queue Name</label>
+                            <input type="text" id="amqp-queue-name" placeholder="my-queue">
+                            <small>Optioneel - laat leeg als je alleen exchange nodig hebt</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="amqp-routing-key">Routing Key</label>
+                            <input type="text" id="amqp-routing-key" placeholder="my.routing.key">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="amqp-queue-durable" checked>
+                                Durable Queue
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="amqp-queue-exclusive">
+                                Exclusive Queue
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="amqp-binding-pattern">Binding Pattern</label>
+                        <input type="text" id="amqp-binding-pattern" placeholder="*.orders.#">
+                        <small>Voor topic exchanges - gebruik * voor 1 woord, # voor 0 of meer woorden</small>
+                    </div>
+
+                    <h4 class="section-title">Authenticatie</h4>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="amqp-username">Username</label>
+                            <input type="text" id="amqp-username" placeholder="guest">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="amqp-password">Password</label>
+                            <input type="text" id="amqp-password" placeholder="guest">
+                        </div>
+                    </div>
+
+                    <h4 class="section-title">Mock Message</h4>
+
+                    <div class="form-group">
+                        <label for="amqp-message-content">Message Content</label>
+                        <textarea id="amqp-message-content" rows="6" placeholder='{"order_id": 123, "status": "pending"}'></textarea>
+                        <small>Voor CONSUME/BOTH: message die consumers ontvangen. Voor PUBLISH: test message</small>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="amqp-auto-reply">
+                                Auto-reply bij request
+                            </label>
+                            <small>Stuur automatisch een reply terug (voor RPC pattern)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="amqp-reply-delay">Reply Delay (ms)</label>
+                            <input type="number" id="amqp-reply-delay" value="0" min="0">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SQL Database specific fields -->
+                <div id="sql-fields" style="display: none;">
+                    <h3 class="section-title">SQL Database Configuratie</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="sql-database-type">Database Type *</label>
+                            <select id="sql-database-type">
+                                <option value="POSTGRESQL">PostgreSQL</option>
+                                <option value="MYSQL">MySQL</option>
+                                <option value="SQL_SERVER">SQL Server</option>
+                                <option value="ORACLE">Oracle</option>
+                                <option value="GENERIC">Generic</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sql-database-name">Database Name *</label>
+                            <input type="text" id="sql-database-name" value="mockdb" placeholder="mockdb">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="sql-username">Username</label>
+                            <input type="text" id="sql-username" value="test" placeholder="test">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="sql-password">Password</label>
+                            <input type="text" id="sql-password" value="test" placeholder="test">
+                        </div>
+                    </div>
+
+                    <h4 class="section-title">Initialisatie Script</h4>
+
+                    <div class="form-group">
+                        <label for="sql-init-script">SQL Init Script</label>
+                        <textarea id="sql-init-script" rows="10" placeholder="CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100));&#10;INSERT INTO users VALUES (1, 'John Doe');&#10;&#10;CREATE FUNCTION get_user(user_id INT) RETURNS VARCHAR(100)&#10;AS $$&#10;  SELECT name FROM users WHERE id = user_id;&#10;$$ LANGUAGE SQL;"></textarea>
+                        <small>SQL statements die uitgevoerd worden bij het starten van de database. Gebruik voor: CREATE TABLE, INSERT data, CREATE FUNCTION/PROCEDURE, etc.</small>
+                    </div>
+
+                    <p><strong>📝 Tip:</strong> Stored procedures zijn volledig ondersteund! Je kunt echte PostgreSQL PL/pgSQL, MySQL procedures, T-SQL, of PL/SQL gebruiken.</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="endpoint-enabled" checked>
+                        Direct activeren
+                    </label>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeEndpointModal()">Annuleren</button>
+                    <button type="submit" class="btn btn-primary">Opslaan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Create/Edit Block -->
+    <div id="block-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="block-modal-title">Nieuwe Block</h2>
+                <button class="close" onclick="closeBlockModal()">&times;</button>
+            </div>
+            <form id="block-form" onsubmit="saveBlock(event)">
+                <div class="form-group">
+                    <label for="block-name">Naam *</label>
+                    <input type="text" id="block-name" required placeholder="Bijv. User Service Mocks">
+                </div>
+
+                <div class="form-group">
+                    <label for="block-description">Beschrijving</label>
+                    <textarea id="block-description" rows="2" placeholder="Optionele beschrijving van deze block"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="block-color">Kleur</label>
+                    <input type="color" id="block-color" value="#667eea">
+                    <small>Kies een kleur voor deze block</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Endpoints</label>
+                    <div id="block-endpoints-selection" class="endpoints-selection">
+                        <!-- Endpoints checkboxes will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeBlockModal()">Annuleren</button>
+                    <button type="submit" class="btn btn-primary">Opslaan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Request Log Detail -->
+    <div id="log-detail-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Request Log Details</h2>
+                <button class="close" onclick="closeLogDetailModal()">&times;</button>
+            </div>
+            <div class="log-detail-content">
+                <div class="detail-section">
+                    <h3>Request</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <strong>Tijd:</strong>
+                            <span id="log-time"></span>
+                        </div>
+                        <div class="detail-item">
+                            <strong>Protocol:</strong>
+                            <span id="log-protocol"></span>
+                        </div>
+                        <div class="detail-item">
+                            <strong>Method:</strong>
+                            <span id="log-method"></span>
+                        </div>
+                        <div class="detail-item">
+                            <strong>Path:</strong>
+                            <span id="log-path"></span>
+                        </div>
+                        <div class="detail-item">
+                            <strong>Client IP:</strong>
+                            <span id="log-client-ip"></span>
+                        </div>
+                        <div class="detail-item">
+                            <strong>Status:</strong>
+                            <span id="log-matched"></span>
+                        </div>
+                    </div>
+
+                    <div class="detail-subsection">
+                        <h4>Headers</h4>
+                        <pre id="log-request-headers"></pre>
+                    </div>
+
+                    <div class="detail-subsection">
+                        <h4>Query Parameters</h4>
+                        <pre id="log-query-params"></pre>
+                    </div>
+
+                    <div class="detail-subsection">
+                        <h4>Body</h4>
+                        <pre id="log-request-body"></pre>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Response</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <strong>Status Code:</strong>
+                            <span id="log-status-code"></span>
+                        </div>
+                        <div class="detail-item">
+                            <strong>Delay:</strong>
+                            <span id="log-delay"></span>
+                        </div>
+                    </div>
+
+                    <div class="detail-subsection">
+                        <h4>Headers</h4>
+                        <pre id="log-response-headers"></pre>
+                    </div>
+
+                    <div class="detail-subsection">
+                        <h4>Body</h4>
+                        <pre id="log-response-body"></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeLogDetailModal()">Sluiten</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
