@@ -763,3 +763,83 @@ form {
     font-size: 0.9em;
     line-height: 1.5;
 }
+
+/* Scenario Cards */
+.scenario-card {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+}
+
+.scenario-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.scenario-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+.scenario-header h3 {
+    margin: 0 0 8px 0;
+    color: #1f2937;
+}
+
+.scenario-header p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.9em;
+}
+
+.scenario-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.scenario-steps {
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.scenario-steps h4 {
+    margin: 0 0 12px 0;
+    color: #4b5563;
+    font-size: 0.95em;
+}
+
+.scenario-steps ol {
+    margin: 0;
+    padding-left: 24px;
+}
+
+.scenario-steps li {
+    padding: 4px 0;
+    color: #6b7280;
+}
+
+/* Scenario Step in Modal */
+.scenario-step {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.step-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.step-header h4 {
+    margin: 0;
+    color: #4b5563;
+    font-size: 0.95em;
+}

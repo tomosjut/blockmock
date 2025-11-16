@@ -44,6 +44,7 @@ public class MetricsResource {
 
     @POST
     @Path("/{id}/reset")
+    @Consumes(MediaType.WILDCARD)
     @Transactional
     public Response resetEndpointMetrics(@PathParam("id") Long id) {
         MockEndpoint endpoint = MockEndpoint.findById(id);
@@ -64,6 +65,7 @@ public class MetricsResource {
 
     @POST
     @Path("/reset-all")
+    @Consumes(MediaType.WILDCARD)
     @Transactional
     public Response resetAllMetrics() {
         List<MockEndpoint> endpoints = MockEndpoint.listAll();

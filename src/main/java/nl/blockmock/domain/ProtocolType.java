@@ -6,5 +6,9 @@ public enum ProtocolType {
     SFTP,
     AMQP,
     MQTT,
-    SQL
+    SQL,
+    NOSQL,
+    KAFKA,
+    GRPC,
+    WEBSOCKET
 }

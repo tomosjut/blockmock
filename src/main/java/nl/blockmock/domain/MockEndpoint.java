@@ -65,6 +65,22 @@ public class MockEndpoint extends PanacheEntity {
     @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
     private SqlConfig sqlConfig;
 
+    @JsonManagedReference("endpoint-nosqlconfig")
+    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
+    private NoSqlConfig noSqlConfig;
+
+    @JsonManagedReference("endpoint-kafkaconfig")
+    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
+    private KafkaConfig kafkaConfig;
+
+    @JsonManagedReference("endpoint-grpcconfig")
+    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
+    private GrpcConfig grpcConfig;
+
+    @JsonManagedReference("endpoint-websocketconfig")
+    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
+    private WebSocketConfig webSocketConfig;
+
     @JsonManagedReference("endpoint-responses")
     @OneToMany(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<MockResponse> responses = new ArrayList<>();

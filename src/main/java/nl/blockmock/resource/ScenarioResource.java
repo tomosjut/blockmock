@@ -36,8 +36,9 @@ public class ScenarioResource {
     }
 
     @POST
-    public Scenario createScenario(Scenario scenario) {
-        return scenarioService.create(scenario);
+    public Response createScenario(Scenario scenario) {
+        Scenario created = scenarioService.create(scenario);
+        return Response.status(Response.Status.CREATED).entity(created).build();
     }
 
     @PUT
@@ -50,12 +51,20 @@ public class ScenarioResource {
     @Path("/{id}")
     public Response deleteScenario(@PathParam("id") Long id) {
         scenarioService.delete(id);
-        return Response.ok().build();
+        return Response.noContent().build();
     }
 
     @POST
     @Path("/{id}/execute")
+    @Consumes(MediaType.WILDCARD)
     public Response executeScenario(@PathParam("id") Long id) {
+        Scenario scenario = scenarioService.findById(id);
+        if (scenario == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity("{\"error\": \"Scenario not found\"}")
+                    .build();
+        }
+
         try {
             scenarioService.executeScenario(id);
             return Response.ok("{\"status\": \"Scenario executed successfully\"}").build();

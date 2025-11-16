@@ -16,6 +16,9 @@ document.querySelectorAll('.tab').forEach(tab => {
         // Load data for the tab
         if (tabName === 'dashboard') loadDashboard();
         else if (tabName === 'templates') loadTemplates();
+        else if (tabName === 'scenarios') loadScenarios();
+        else if (tabName === 'metrics') loadMetrics();
+        else if (tabName === 'blocks') loadBlocks();
         else if (tabName === 'endpoints') loadEndpoints();
         else if (tabName === 'logs') loadLogs();
     });
@@ -505,12 +508,22 @@ function toggleProtocolFields() {
     const sftpFields = document.getElementById('sftp-fields');
     const amqpFields = document.getElementById('amqp-fields');
     const sqlFields = document.getElementById('sql-fields');
+    const mqttFields = document.getElementById('mqtt-fields');
+    const nosqlFields = document.getElementById('nosql-fields');
+    const kafkaFields = document.getElementById('kafka-fields');
+    const grpcFields = document.getElementById('grpc-fields');
+    const websocketFields = document.getElementById('websocket-fields');
 
     // Hide all
     httpFields.style.display = 'none';
     sftpFields.style.display = 'none';
     amqpFields.style.display = 'none';
     sqlFields.style.display = 'none';
+    mqttFields.style.display = 'none';
+    nosqlFields.style.display = 'none';
+    kafkaFields.style.display = 'none';
+    grpcFields.style.display = 'none';
+    websocketFields.style.display = 'none';
 
     // Show relevant
     if (protocol === 'HTTP' || protocol === 'HTTPS') {
@@ -521,6 +534,16 @@ function toggleProtocolFields() {
         amqpFields.style.display = 'block';
     } else if (protocol === 'SQL') {
         sqlFields.style.display = 'block';
+    } else if (protocol === 'MQTT') {
+        mqttFields.style.display = 'block';
+    } else if (protocol === 'NOSQL') {
+        nosqlFields.style.display = 'block';
+    } else if (protocol === 'KAFKA') {
+        kafkaFields.style.display = 'block';
+    } else if (protocol === 'GRPC') {
+        grpcFields.style.display = 'block';
+    } else if (protocol === 'WEBSOCKET') {
+        websocketFields.style.display = 'block';
     }
 }
 
@@ -609,6 +632,41 @@ async function saveEndpoint(event) {
                 password: document.getElementById('sql-password').value || null,
                 initScript: document.getElementById('sql-init-script').value || null,
                 queryMocks: []
+            };
+            endpoint.responses = [];
+        } else if (protocol === 'NOSQL') {
+            endpoint.noSqlConfig = {
+                databaseType: document.getElementById('nosql-database-type').value,
+                host: document.getElementById('nosql-host').value,
+                port: parseInt(document.getElementById('nosql-port').value),
+                databaseName: document.getElementById('nosql-database-name').value || null,
+                username: document.getElementById('nosql-username').value || null,
+                password: document.getElementById('nosql-password').value || null
+            };
+            endpoint.responses = [];
+        } else if (protocol === 'KAFKA') {
+            endpoint.kafkaConfig = {
+                topicName: document.getElementById('kafka-topic').value,
+                operation: document.getElementById('kafka-operation').value,
+                bootstrapServers: document.getElementById('kafka-bootstrap-servers').value,
+                groupId: document.getElementById('kafka-group-id').value || null
+            };
+            endpoint.responses = [];
+        } else if (protocol === 'GRPC') {
+            endpoint.grpcConfig = {
+                serviceName: document.getElementById('grpc-service-name').value,
+                methodName: document.getElementById('grpc-method-name').value,
+                port: parseInt(document.getElementById('grpc-port').value),
+                isClientStreaming: document.getElementById('grpc-client-streaming').checked,
+                isServerStreaming: document.getElementById('grpc-server-streaming').checked
+            };
+            endpoint.responses = [];
+        } else if (protocol === 'WEBSOCKET') {
+            endpoint.webSocketConfig = {
+                path: document.getElementById('websocket-path').value,
+                operation: document.getElementById('websocket-operation').value,
+                maxConnections: parseInt(document.getElementById('websocket-max-connections').value),
+                messageFormat: document.getElementById('websocket-message-format').value
             };
             endpoint.responses = [];
         }
@@ -1184,6 +1242,390 @@ async function importEndpoints(event) {
     } catch (error) {
         alert('Error bij importeren endpoints: ' + error.message);
         event.target.value = '';
+    }
+}
+
+// ===================================
+// SCENARIOS FUNCTIONS
+// ===================================
+
+let currentScenarioId = null;
+let scenarioStepCounter = 0;
+
+// Load scenarios
+async function loadScenarios() {
+    try {
+        const scenarios = await fetch('/api/scenarios').then(r => r.json());
+        const container = document.getElementById('scenarios-list');
+
+        if (scenarios.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <h3>Nog geen scenarios</h3>
+                    <p>Klik op "Nieuw Scenario" om te beginnen</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = scenarios.map(scenario => `
+            <div class="scenario-card" style="border-left: 4px solid ${scenario.color}">
+                <div class="scenario-header">
+                    <div>
+                        <h3>${scenario.name}</h3>
+                        ${scenario.description ? `<p>${scenario.description}</p>` : ''}
+                    </div>
+                    <div class="scenario-actions">
+                        <button class="btn btn-primary" onclick="executeScenario(${scenario.id})">▶️ Uitvoeren</button>
+                        <button class="btn btn-small btn-secondary" onclick="showEditScenario(${scenario.id})" title="Bewerken">✏️</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteScenario(${scenario.id})" title="Verwijderen">🗑️</button>
+                    </div>
+                </div>
+                <div class="scenario-steps">
+                    <h4>Steps (${scenario.steps.length}):</h4>
+                    <ol>
+                        ${scenario.steps.map(step => {
+                            let stepDesc = '';
+                            if (step.action === 'ENABLE') {
+                                stepDesc = `Enable endpoint: ${step.mockEndpoint?.name || 'Unknown'}`;
+                            } else if (step.action === 'DISABLE') {
+                                stepDesc = `Disable endpoint: ${step.mockEndpoint?.name || 'Unknown'}`;
+                            } else if (step.action === 'DELAY') {
+                                stepDesc = `Wait ${step.delayMs}ms`;
+                            }
+                            return `<li>${stepDesc}</li>`;
+                        }).join('')}
+                    </ol>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading scenarios:', error);
+    }
+}
+
+// Show create scenario modal
+function showCreateScenario() {
+    currentScenarioId = null;
+    scenarioStepCounter = 0;
+    document.getElementById('scenario-modal-title').textContent = 'Nieuw Scenario';
+    document.getElementById('scenario-form').reset();
+    document.getElementById('scenario-color').value = '#667eea';
+    document.getElementById('scenario-steps-container').innerHTML = '';
+    document.getElementById('scenario-modal').style.display = 'block';
+}
+
+// Show edit scenario modal
+async function showEditScenario(id) {
+    try {
+        const scenario = await fetch(`/api/scenarios/${id}`).then(r => r.json());
+        currentScenarioId = id;
+        scenarioStepCounter = 0;
+
+        document.getElementById('scenario-modal-title').textContent = 'Scenario Bewerken';
+        document.getElementById('scenario-name').value = scenario.name;
+        document.getElementById('scenario-description').value = scenario.description || '';
+        document.getElementById('scenario-color').value = scenario.color;
+
+        // Load steps
+        const stepsContainer = document.getElementById('scenario-steps-container');
+        stepsContainer.innerHTML = '';
+
+        for (const step of scenario.steps) {
+            await addScenarioStepWithData(step);
+        }
+
+        document.getElementById('scenario-modal').style.display = 'block';
+    } catch (error) {
+        alert('Error loading scenario: ' + error.message);
+    }
+}
+
+// Close scenario modal
+function closeScenarioModal() {
+    document.getElementById('scenario-modal').style.display = 'none';
+}
+
+// Add scenario step
+async function addScenarioStep() {
+    await addScenarioStepWithData(null);
+}
+
+async function addScenarioStepWithData(stepData) {
+    const stepId = scenarioStepCounter++;
+    const container = document.getElementById('scenario-steps-container');
+
+    // Load all endpoints for selection
+    const endpoints = await fetch('/api/endpoints').then(r => r.json());
+
+    const stepDiv = document.createElement('div');
+    stepDiv.className = 'scenario-step';
+    stepDiv.id = `step-${stepId}`;
+    stepDiv.innerHTML = `
+        <div class="step-header">
+            <h4>Step ${stepId + 1}</h4>
+            <button type="button" class="btn btn-small btn-danger" onclick="removeScenarioStep(${stepId})">✖</button>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="step-action-${stepId}">Action *</label>
+                <select id="step-action-${stepId}" required onchange="toggleStepFields(${stepId})">
+                    <option value="ENABLE" ${stepData?.action === 'ENABLE' ? 'selected' : ''}>Enable Endpoint</option>
+                    <option value="DISABLE" ${stepData?.action === 'DISABLE' ? 'selected' : ''}>Disable Endpoint</option>
+                    <option value="DELAY" ${stepData?.action === 'DELAY' ? 'selected' : ''}>Delay</option>
+                </select>
+            </div>
+            <div class="form-group" id="step-endpoint-group-${stepId}" style="${stepData?.action === 'DELAY' ? 'display: none;' : ''}">
+                <label for="step-endpoint-${stepId}">Endpoint *</label>
+                <select id="step-endpoint-${stepId}">
+                    <option value="">Select endpoint...</option>
+                    ${endpoints.map(e => `
+                        <option value="${e.id}" ${stepData?.mockEndpoint?.id === e.id ? 'selected' : ''}>
+                            ${e.name} (${e.protocol})
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            <div class="form-group" id="step-delay-group-${stepId}" style="${stepData?.action !== 'DELAY' ? 'display: none;' : ''}">
+                <label for="step-delay-${stepId}">Delay (ms) *</label>
+                <input type="number" id="step-delay-${stepId}" value="${stepData?.delayMs || 1000}" min="0">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="step-description-${stepId}">Description</label>
+            <input type="text" id="step-description-${stepId}" value="${stepData?.description || ''}" placeholder="Optional description">
+        </div>
+    `;
+
+    container.appendChild(stepDiv);
+}
+
+function toggleStepFields(stepId) {
+    const action = document.getElementById(`step-action-${stepId}`).value;
+    const endpointGroup = document.getElementById(`step-endpoint-group-${stepId}`);
+    const delayGroup = document.getElementById(`step-delay-group-${stepId}`);
+
+    if (action === 'DELAY') {
+        endpointGroup.style.display = 'none';
+        delayGroup.style.display = 'block';
+    } else {
+        endpointGroup.style.display = 'block';
+        delayGroup.style.display = 'none';
+    }
+}
+
+function removeScenarioStep(stepId) {
+    document.getElementById(`step-${stepId}`).remove();
+}
+
+// Save scenario
+async function saveScenario(event) {
+    event.preventDefault();
+
+    const name = document.getElementById('scenario-name').value;
+    const description = document.getElementById('scenario-description').value;
+    const color = document.getElementById('scenario-color').value;
+
+    // Collect steps
+    const steps = [];
+    const stepsContainer = document.getElementById('scenario-steps-container');
+    const stepDivs = stepsContainer.querySelectorAll('.scenario-step');
+
+    stepDivs.forEach((stepDiv, index) => {
+        const stepId = stepDiv.id.split('-')[1];
+        const action = document.getElementById(`step-action-${stepId}`).value;
+        const endpointId = document.getElementById(`step-endpoint-${stepId}`)?.value;
+        const delayMs = document.getElementById(`step-delay-${stepId}`)?.value;
+        const stepDescription = document.getElementById(`step-description-${stepId}`).value;
+
+        const step = {
+            stepOrder: index,
+            action: action,
+            description: stepDescription || null
+        };
+
+        if (action === 'DELAY') {
+            step.delayMs = parseInt(delayMs);
+        } else {
+            if (endpointId) {
+                step.mockEndpoint = { id: parseInt(endpointId) };
+            }
+        }
+
+        steps.push(step);
+    });
+
+    const scenario = {
+        name,
+        description: description || null,
+        color,
+        steps
+    };
+
+    try {
+        const url = currentScenarioId ? `/api/scenarios/${currentScenarioId}` : '/api/scenarios';
+        const method = currentScenarioId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(scenario)
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to save scenario');
+        }
+
+        closeScenarioModal();
+        loadScenarios();
+    } catch (error) {
+        alert('Error saving scenario: ' + error.message);
+    }
+}
+
+// Delete scenario
+async function deleteScenario(id) {
+    if (!confirm('Weet je zeker dat je dit scenario wilt verwijderen?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/scenarios/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+            throw new Error('Failed to delete scenario');
+        }
+        loadScenarios();
+    } catch (error) {
+        alert('Error deleting scenario: ' + error.message);
+    }
+}
+
+// Execute scenario
+async function executeScenario(id) {
+    if (!confirm('Weet je zeker dat je dit scenario wilt uitvoeren?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/scenarios/${id}/execute`, { method: 'POST' });
+        if (!response.ok) {
+            throw new Error('Failed to execute scenario');
+        }
+        alert('Scenario succesvol uitgevoerd!');
+        loadEndpoints();
+        loadDashboard();
+    } catch (error) {
+        alert('Error executing scenario: ' + error.message);
+    }
+}
+
+// ===================================
+// METRICS FUNCTIONS
+// ===================================
+
+// Load metrics
+async function loadMetrics() {
+    try {
+        const metrics = await fetch('/api/metrics').then(r => r.json());
+        const container = document.getElementById('metrics-list');
+
+        if (metrics.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <h3>Nog geen metrics</h3>
+                    <p>Metrics worden automatisch verzameld wanneer endpoints worden gebruikt</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Endpoint</th>
+                            <th>Protocol</th>
+                            <th>Status</th>
+                            <th>Total Requests</th>
+                            <th>Matched</th>
+                            <th>Unmatched</th>
+                            <th>Success Rate</th>
+                            <th>Avg Response Time</th>
+                            <th>Last Request</th>
+                            <th>Acties</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${metrics.map(m => `
+                            <tr>
+                                <td><strong>${m.endpointName}</strong></td>
+                                <td><span class="badge info">${m.protocol}</span></td>
+                                <td>
+                                    ${m.enabled
+                                        ? '<span class="badge success">Actief</span>'
+                                        : '<span class="badge error">Inactief</span>'}
+                                </td>
+                                <td>${m.totalRequests}</td>
+                                <td><span class="badge success">${m.matchedRequests}</span></td>
+                                <td><span class="badge error">${m.unmatchedRequests}</span></td>
+                                <td>${m.successRate}</td>
+                                <td>${m.averageResponseTimeMs}ms</td>
+                                <td>${m.lastRequestAt ? new Date(m.lastRequestAt).toLocaleString('nl-NL') : 'Never'}</td>
+                                <td>
+                                    <button class="btn btn-small btn-danger" onclick="resetEndpointMetrics(${m.endpointId})" title="Reset">
+                                        🔄
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error loading metrics:', error);
+    }
+}
+
+// Refresh metrics
+async function refreshMetrics() {
+    await loadMetrics();
+}
+
+// Reset all metrics
+async function resetAllMetrics() {
+    if (!confirm('Weet je zeker dat je alle metrics wilt resetten?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/metrics/reset-all', { method: 'POST' });
+        if (!response.ok) {
+            throw new Error('Failed to reset metrics');
+        }
+        loadMetrics();
+        loadDashboard();
+    } catch (error) {
+        alert('Error resetting metrics: ' + error.message);
+    }
+}
+
+// Reset endpoint metrics
+async function resetEndpointMetrics(id) {
+    if (!confirm('Weet je zeker dat je de metrics voor dit endpoint wilt resetten?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/metrics/${id}/reset`, { method: 'POST' });
+        if (!response.ok) {
+            throw new Error('Failed to reset endpoint metrics');
+        }
+        loadMetrics();
+        loadDashboard();
+    } catch (error) {
+        alert('Error resetting endpoint metrics: ' + error.message);
     }
 }
 

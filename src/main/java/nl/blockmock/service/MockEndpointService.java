@@ -34,6 +34,22 @@ public class MockEndpointService {
             }
         }
 
+        if (endpoint.getNoSqlConfig() != null) {
+            endpoint.getNoSqlConfig().setMockEndpoint(endpoint);
+        }
+
+        if (endpoint.getKafkaConfig() != null) {
+            endpoint.getKafkaConfig().setMockEndpoint(endpoint);
+        }
+
+        if (endpoint.getGrpcConfig() != null) {
+            endpoint.getGrpcConfig().setMockEndpoint(endpoint);
+        }
+
+        if (endpoint.getWebSocketConfig() != null) {
+            endpoint.getWebSocketConfig().setMockEndpoint(endpoint);
+        }
+
         if (endpoint.getResponses() != null) {
             for (MockResponse response : endpoint.getResponses()) {
                 response.setMockEndpoint(endpoint);
@@ -68,6 +84,22 @@ public class MockEndpointService {
             }
         }
 
+        if (endpoint.getNoSqlConfig() != null) {
+            endpoint.getNoSqlConfig().setMockEndpoint(endpoint);
+        }
+
+        if (endpoint.getKafkaConfig() != null) {
+            endpoint.getKafkaConfig().setMockEndpoint(endpoint);
+        }
+
+        if (endpoint.getGrpcConfig() != null) {
+            endpoint.getGrpcConfig().setMockEndpoint(endpoint);
+        }
+
+        if (endpoint.getWebSocketConfig() != null) {
+            endpoint.getWebSocketConfig().setMockEndpoint(endpoint);
+        }
+
         if (endpoint.getResponses() != null) {
             for (MockResponse response : endpoint.getResponses()) {
                 response.setMockEndpoint(endpoint);
@@ -99,19 +131,23 @@ public class MockEndpointService {
     }
 
     @Transactional
-    public void toggleEnabled(Long id) {
+    public MockEndpoint toggleEnabled(Long id) {
         MockEndpoint endpoint = MockEndpoint.findById(id);
         if (endpoint != null) {
             endpoint.setEnabled(!endpoint.getEnabled());
+            endpoint.persist();
         }
+        return endpoint;
     }
 
     @Transactional
-    public void toggleEnabled(Long id, boolean enabled) {
+    public MockEndpoint toggleEnabled(Long id, boolean enabled) {
         MockEndpoint endpoint = MockEndpoint.findById(id);
         if (endpoint != null) {
             endpoint.setEnabled(enabled);
+            endpoint.persist();
         }
+        return endpoint;
     }
 
     @Transactional

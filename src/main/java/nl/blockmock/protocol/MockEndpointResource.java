@@ -67,6 +67,7 @@ public class MockEndpointResource {
 
     @POST
     @Path("/{id}/toggle")
+    @Consumes(MediaType.WILDCARD)
     public Response toggle(@PathParam("id") Long id) {
         if (!mockEndpointService.findById(id).isPresent()) {
             return Response.status(Response.Status.NOT_FOUND).build();
