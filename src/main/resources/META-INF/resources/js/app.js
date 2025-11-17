@@ -78,7 +78,9 @@ async function loadEndpoints() {
                             } else if (endpoint.sftpConfig) {
                                 details = `${endpoint.sftpConfig.operation} <code>${endpoint.sftpConfig.pathPattern}</code>`;
                             } else if (endpoint.amqpConfig) {
-                                details = `${endpoint.amqpConfig.operation} <code>${endpoint.amqpConfig.exchangeName}</code>`;
+                                const brokerLabel = endpoint.amqpConfig.brokerType === 'ARTEMIS' ? 'Artemis' :
+                                                   endpoint.amqpConfig.brokerType === 'IBM_MQ' ? 'IBM MQ' : 'RabbitMQ';
+                                details = `${brokerLabel} - ${endpoint.amqpConfig.operation} <code>${endpoint.amqpConfig.exchangeName}</code>`;
                             } else if (endpoint.sqlConfig) {
                                 details = `${endpoint.sqlConfig.databaseType} <code>${endpoint.sqlConfig.databaseName}</code>`;
                             }
@@ -603,6 +605,7 @@ async function saveEndpoint(event) {
             endpoint.responses = [];
         } else if (protocol === 'AMQP') {
             endpoint.amqpConfig = {
+                brokerType: document.getElementById('amqp-broker-type').value,
                 host: document.getElementById('amqp-host').value,
                 port: parseInt(document.getElementById('amqp-port').value),
                 virtualHost: document.getElementById('amqp-vhost').value,
@@ -1626,6 +1629,39 @@ async function resetEndpointMetrics(id) {
         loadDashboard();
     } catch (error) {
         alert('Error resetting endpoint metrics: ' + error.message);
+    }
+}
+
+// Update AMQP defaults based on broker type
+function updateAmqpDefaults() {
+    const brokerType = document.getElementById('amqp-broker-type').value;
+    const portField = document.getElementById('amqp-port');
+    const vhostField = document.getElementById('amqp-vhost');
+    const vhostLabel = document.getElementById('amqp-vhost-label');
+    const vhostHint = document.getElementById('amqp-vhost-hint');
+    const brokerHint = document.getElementById('amqp-broker-hint');
+
+    if (brokerType === 'RABBITMQ') {
+        portField.value = '5672';
+        vhostField.value = '/';
+        vhostField.placeholder = '/';
+        vhostLabel.textContent = 'Virtual Host';
+        vhostHint.textContent = 'RabbitMQ virtual host (default: /)';
+        brokerHint.textContent = 'RabbitMQ - Default poort: 5672, Protocol: AMQP 0.9.1';
+    } else if (brokerType === 'ARTEMIS') {
+        portField.value = '61616';
+        vhostField.value = '/';
+        vhostField.placeholder = '/';
+        vhostLabel.textContent = 'Virtual Host';
+        vhostHint.textContent = 'Artemis ondersteunt geen virtual hosts (gebruik /)';
+        brokerHint.textContent = 'Apache Artemis - Default poort: 61616, Protocol: JMS 2.0';
+    } else if (brokerType === 'IBM_MQ') {
+        portField.value = '1414';
+        vhostField.value = 'QM1';
+        vhostField.placeholder = 'QM1';
+        vhostLabel.textContent = 'Queue Manager';
+        vhostHint.textContent = 'IBM MQ Queue Manager naam (bijv. QM1)';
+        brokerHint.textContent = 'IBM MQ - Default poort: 1414, Protocol: JMS via IBM MQ';
     }
 }
 

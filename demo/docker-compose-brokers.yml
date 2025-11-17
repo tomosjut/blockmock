@@ -1,0 +1,73 @@
+version: '3.8'
+
+# Demo setup voor BlockMock Message Broker Abstractie
+# Start alle drie brokers tegelijk: docker-compose -f demo/docker-compose-brokers.yml up -d
+
+services:
+  # RabbitMQ - AMQP 0.9.1
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: demo-rabbitmq
+    ports:
+      - "5672:5672"    # AMQP poort
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - broker-demo
+
+  # Apache ActiveMQ Artemis - JMS
+  artemis:
+    image: quay.io/artemiscloud/activemq-artemis-broker:latest
+    container_name: demo-artemis
+    ports:
+      - "61616:61616"  # JMS poort
+      - "8161:8161"    # Management console
+    environment:
+      AMQ_USER: admin
+      AMQ_PASSWORD: admin
+      AMQ_ROLE: admin
+      AMQ_NAME: artemis-broker
+      AMQ_EXTRA_ARGS: --http-host 0.0.0.0 --relax-jolokia
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8161/console || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - broker-demo
+
+  # IBM MQ - JMS
+  ibmmq:
+    image: icr.io/ibm-messaging/mq:latest
+    container_name: demo-ibmmq
+    ports:
+      - "1414:1414"    # MQ listener poort
+      - "9443:9443"    # Web console
+    environment:
+      LICENSE: accept
+      MQ_QMGR_NAME: QM1
+      MQ_APP_PASSWORD: passw0rd
+      MQ_ADMIN_PASSWORD: passw0rd
+    volumes:
+      - ibmmq-data:/mnt/mqm
+    healthcheck:
+      test: ["CMD", "dspmq"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - broker-demo
+
+networks:
+  broker-demo:
+    driver: bridge
+
+volumes:
+  ibmmq-data:

@@ -144,7 +144,7 @@
                             <option value="HTTP">HTTP</option>
                             <option value="HTTPS">HTTPS</option>
                             <option value="SFTP">SFTP</option>
-                            <option value="AMQP">AMQP/RabbitMQ</option>
+                            <option value="AMQP">Message Broker (AMQP)</option>
                             <option value="MQTT">MQTT</option>
                             <option value="SQL">SQL Database</option>
                             <option value="NOSQL">NoSQL Database</option>
@@ -285,7 +285,17 @@
 
                 <!-- AMQP specific fields -->
                 <div id="amqp-fields" style="display: none;">
-                    <h3 class="section-title">AMQP/RabbitMQ Configuratie</h3>
+                    <h3 class="section-title">Message Broker Configuratie</h3>
+
+                    <div class="form-group">
+                        <label for="amqp-broker-type">Broker Type *</label>
+                        <select id="amqp-broker-type" onchange="updateAmqpDefaults()">
+                            <option value="RABBITMQ">RabbitMQ (AMQP 0.9.1)</option>
+                            <option value="ARTEMIS">Apache ActiveMQ Artemis (JMS)</option>
+                            <option value="IBM_MQ">IBM MQ (JMS)</option>
+                        </select>
+                        <small id="amqp-broker-hint">RabbitMQ - Default poort: 5672</small>
+                    </div>
 
                     <div class="form-row">
                         <div class="form-group">
@@ -301,8 +311,9 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="amqp-vhost">Virtual Host</label>
+                            <label for="amqp-vhost" id="amqp-vhost-label">Virtual Host</label>
                             <input type="text" id="amqp-vhost" value="/" placeholder="/">
+                            <small id="amqp-vhost-hint">Voor RabbitMQ: virtual host. Voor IBM MQ: Queue Manager naam</small>
                         </div>
 
                         <div class="form-group">

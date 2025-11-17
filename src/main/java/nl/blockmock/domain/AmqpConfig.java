@@ -70,6 +70,11 @@ public class AmqpConfig extends PanacheEntity {
     @Column(length = 255)
     private String password;
 
+    // Broker type
+    @Enumerated(EnumType.STRING)
+    @Column(name = "broker_type", nullable = false, length = 50)
+    private MessageBrokerType brokerType = MessageBrokerType.RABBITMQ;
+
     // Mock behavior
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)

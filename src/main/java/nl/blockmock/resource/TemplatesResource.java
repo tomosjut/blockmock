@@ -264,12 +264,13 @@ public class TemplatesResource {
     private MockEndpoint createAmqpEndpoint() {
         MockEndpoint endpoint = new MockEndpoint();
         endpoint.setName("Message Queue");
-        endpoint.setDescription("AMQP message queue for testing");
+        endpoint.setDescription("Message broker for testing (RabbitMQ/Artemis/IBM MQ)");
         endpoint.setProtocol(ProtocolType.AMQP);
         endpoint.setPattern(PatternType.PUB_SUB);
         endpoint.setEnabled(true);
 
         AmqpConfig amqpConfig = new AmqpConfig();
+        amqpConfig.setBrokerType(MessageBrokerType.RABBITMQ); // Default to RabbitMQ
         amqpConfig.setHost("localhost");
         amqpConfig.setPort(5672);
         amqpConfig.setVirtualHost("/");

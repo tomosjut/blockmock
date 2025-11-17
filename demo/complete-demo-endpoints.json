@@ -1,0 +1,190 @@
+[
+  {
+    "name": "Demo: HTTP GET Users",
+    "description": "REST API endpoint voor gebruikerslijst ophalen",
+    "protocol": "HTTP",
+    "pattern": "REQUEST_REPLY",
+    "enabled": true,
+    "httpConfig": {
+      "method": "GET",
+      "path": "/api/users",
+      "pathIsRegex": false
+    },
+    "responses": [
+      {
+        "name": "Success Response",
+        "statusCode": 200,
+        "body": "[{\"id\": 1, \"name\": \"Alice Johnson\", \"email\": \"alice@example.com\", \"role\": \"admin\"}, {\"id\": 2, \"name\": \"Bob Smith\", \"email\": \"bob@example.com\", \"role\": \"developer\"}, {\"id\": 3, \"name\": \"Carol White\", \"email\": \"carol@example.com\", \"role\": \"tester\"}]",
+        "contentType": "application/json",
+        "delay": 100,
+        "headers": {"X-Total-Count": "3", "X-Page": "1"}
+      }
+    ]
+  },
+  {
+    "name": "Demo: HTTP POST Create User",
+    "description": "REST API endpoint voor nieuwe gebruiker aanmaken",
+    "protocol": "HTTP",
+    "pattern": "REQUEST_REPLY",
+    "enabled": true,
+    "httpConfig": {
+      "method": "POST",
+      "path": "/api/users",
+      "pathIsRegex": false
+    },
+    "responses": [
+      {
+        "name": "Created Response",
+        "statusCode": 201,
+        "body": "{\"id\": 4, \"name\": \"John Doe\", \"email\": \"john@example.com\", \"role\": \"developer\", \"created_at\": \"2025-11-17T10:00:00Z\"}",
+        "contentType": "application/json",
+        "delay": 150,
+        "headers": {"Location": "/api/users/4"}
+      }
+    ]
+  },
+  {
+    "name": "Demo: HTTP GET User by ID",
+    "description": "REST API endpoint voor specifieke gebruiker (met regex)",
+    "protocol": "HTTP",
+    "pattern": "REQUEST_REPLY",
+    "enabled": true,
+    "httpConfig": {
+      "method": "GET",
+      "path": "/api/users/[0-9]+",
+      "pathIsRegex": true
+    },
+    "responses": [
+      {
+        "name": "User Found",
+        "statusCode": 200,
+        "body": "{\"id\": 123, \"name\": \"Demo User\", \"email\": \"demo@example.com\", \"role\": \"developer\", \"department\": \"Engineering\", \"hire_date\": \"2024-01-15\"}",
+        "contentType": "application/json",
+        "delay": 50
+      }
+    ]
+  },
+  {
+    "name": "Demo: SFTP Upload Files",
+    "description": "SFTP server die uploads accepteert in /uploads directory",
+    "protocol": "SFTP",
+    "pattern": "FIRE_FORGET",
+    "enabled": true,
+    "sftpConfig": {
+      "port": 2222,
+      "operation": "UPLOAD",
+      "pathPattern": "/uploads/*",
+      "pathIsRegex": false,
+      "allowAnonymous": false,
+      "username": "testuser",
+      "password": "testpass",
+      "mockResponseContent": null,
+      "success": true
+    }
+  },
+  {
+    "name": "Demo: SFTP Download Report",
+    "description": "SFTP server die mock PDF report retourneert",
+    "protocol": "SFTP",
+    "pattern": "REQUEST_REPLY",
+    "enabled": true,
+    "sftpConfig": {
+      "port": 2222,
+      "operation": "DOWNLOAD",
+      "pathPattern": "/downloads/*.pdf",
+      "pathIsRegex": false,
+      "allowAnonymous": false,
+      "username": "testuser",
+      "password": "testpass",
+      "mockResponseContent": "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Count 1/Kids[3 0 R]>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj\nxref\n0 4\ntrailer<</Size 4/Root 1 0 R>>startxref\n%%EOF",
+      "success": true
+    }
+  },
+  {
+    "name": "Demo: RabbitMQ Order Processing",
+    "description": "RabbitMQ queue die orders ontvangt en bevestigt (AMQP 0.9.1)",
+    "protocol": "AMQP",
+    "pattern": "REQUEST_REPLY",
+    "enabled": true,
+    "amqpConfig": {
+      "brokerType": "RABBITMQ",
+      "host": "localhost",
+      "port": 5672,
+      "virtualHost": "/",
+      "operation": "CONSUME",
+      "exchangeName": "demo.orders",
+      "exchangeType": "TOPIC",
+      "exchangeDurable": true,
+      "exchangeAutoDelete": false,
+      "queueName": "demo.order.processing",
+      "queueDurable": true,
+      "queueExclusive": false,
+      "queueAutoDelete": false,
+      "routingKey": "order.*",
+      "bindingPattern": "order.*",
+      "username": "guest",
+      "password": "guest",
+      "mockMessageContent": "{\"status\": \"order_confirmed\", \"order_id\": \"ORD-12345\", \"confirmation_number\": \"CONF-98765\", \"estimated_delivery\": \"2025-11-20\", \"timestamp\": \"2025-11-17T10:00:00Z\"}",
+      "autoReply": true,
+      "replyDelayMs": 100
+    }
+  },
+  {
+    "name": "Demo: Artemis Notification Service",
+    "description": "Apache Artemis queue voor notificaties via JMS",
+    "protocol": "AMQP",
+    "pattern": "PUB_SUB",
+    "enabled": true,
+    "amqpConfig": {
+      "brokerType": "ARTEMIS",
+      "host": "localhost",
+      "port": 61616,
+      "virtualHost": "/",
+      "operation": "CONSUME",
+      "exchangeName": "demo.notifications",
+      "exchangeType": "FANOUT",
+      "exchangeDurable": true,
+      "exchangeAutoDelete": false,
+      "queueName": "demo.notification.queue",
+      "queueDurable": true,
+      "queueExclusive": false,
+      "queueAutoDelete": false,
+      "routingKey": null,
+      "bindingPattern": null,
+      "username": "admin",
+      "password": "admin",
+      "mockMessageContent": "{\"notification_id\": \"NOTIF-567\", \"type\": \"email\", \"recipient\": \"user@example.com\", \"subject\": \"Your order has been shipped\", \"body\": \"Track your order at: https://tracking.example.com/ORD-12345\", \"sent_at\": \"2025-11-17T10:05:00Z\"}",
+      "autoReply": false,
+      "replyDelayMs": 0
+    }
+  },
+  {
+    "name": "Demo: IBM MQ Payment Gateway",
+    "description": "IBM MQ queue voor payment processing via JMS",
+    "protocol": "AMQP",
+    "pattern": "REQUEST_REPLY",
+    "enabled": true,
+    "amqpConfig": {
+      "brokerType": "IBM_MQ",
+      "host": "localhost",
+      "port": 1414,
+      "virtualHost": "QM1",
+      "operation": "BOTH",
+      "exchangeName": "DEMO.PAYMENT.QUEUE",
+      "exchangeType": "DIRECT",
+      "exchangeDurable": true,
+      "exchangeAutoDelete": false,
+      "queueName": "DEMO.PAYMENT.QUEUE",
+      "queueDurable": true,
+      "queueExclusive": false,
+      "queueAutoDelete": false,
+      "routingKey": "payment",
+      "bindingPattern": null,
+      "username": "app",
+      "password": "passw0rd",
+      "mockMessageContent": "{\"payment_status\": \"approved\", \"transaction_id\": \"TXN-67890\", \"authorization_code\": \"AUTH-54321\", \"amount\": 149.99, \"currency\": \"EUR\", \"card_type\": \"VISA\", \"last4\": \"1234\", \"processed_at\": \"2025-11-17T10:10:00Z\"}",
+      "autoReply": true,
+      "replyDelayMs": 200
+    }
+  }
+]
