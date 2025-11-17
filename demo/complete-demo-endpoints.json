@@ -8,16 +8,15 @@
     "httpConfig": {
       "method": "GET",
       "path": "/api/users",
-      "pathIsRegex": false
+      "pathRegex": false
     },
     "responses": [
       {
         "name": "Success Response",
-        "statusCode": 200,
-        "body": "[{\"id\": 1, \"name\": \"Alice Johnson\", \"email\": \"alice@example.com\", \"role\": \"admin\"}, {\"id\": 2, \"name\": \"Bob Smith\", \"email\": \"bob@example.com\", \"role\": \"developer\"}, {\"id\": 3, \"name\": \"Carol White\", \"email\": \"carol@example.com\", \"role\": \"tester\"}]",
-        "contentType": "application/json",
-        "delay": 100,
-        "headers": {"X-Total-Count": "3", "X-Page": "1"}
+        "responseStatusCode": 200,
+        "responseBody": "[{\"id\": 1, \"name\": \"Alice Johnson\", \"email\": \"alice@example.com\", \"role\": \"admin\"}, {\"id\": 2, \"name\": \"Bob Smith\", \"email\": \"bob@example.com\", \"role\": \"developer\"}, {\"id\": 3, \"name\": \"Carol White\", \"email\": \"carol@example.com\", \"role\": \"tester\"}]",
+        "responseDelayMs": 100,
+        "responseHeaders": {"Content-Type": "application/json", "X-Total-Count": "3", "X-Page": "1"}
       }
     ]
   },
@@ -30,16 +29,15 @@
     "httpConfig": {
       "method": "POST",
       "path": "/api/users",
-      "pathIsRegex": false
+      "pathRegex": false
     },
     "responses": [
       {
         "name": "Created Response",
-        "statusCode": 201,
-        "body": "{\"id\": 4, \"name\": \"John Doe\", \"email\": \"john@example.com\", \"role\": \"developer\", \"created_at\": \"2025-11-17T10:00:00Z\"}",
-        "contentType": "application/json",
-        "delay": 150,
-        "headers": {"Location": "/api/users/4"}
+        "responseStatusCode": 201,
+        "responseBody": "{\"id\": 4, \"name\": \"John Doe\", \"email\": \"john@example.com\", \"role\": \"developer\", \"created_at\": \"2025-11-17T10:00:00Z\"}",
+        "responseDelayMs": 150,
+        "responseHeaders": {"Content-Type": "application/json", "Location": "/api/users/4"}
       }
     ]
   },
@@ -52,15 +50,15 @@
     "httpConfig": {
       "method": "GET",
       "path": "/api/users/[0-9]+",
-      "pathIsRegex": true
+      "pathRegex": true
     },
     "responses": [
       {
         "name": "User Found",
-        "statusCode": 200,
-        "body": "{\"id\": 123, \"name\": \"Demo User\", \"email\": \"demo@example.com\", \"role\": \"developer\", \"department\": \"Engineering\", \"hire_date\": \"2024-01-15\"}",
-        "contentType": "application/json",
-        "delay": 50
+        "responseStatusCode": 200,
+        "responseBody": "{\"id\": 123, \"name\": \"Demo User\", \"email\": \"demo@example.com\", \"role\": \"developer\", \"department\": \"Engineering\", \"hire_date\": \"2024-01-15\"}",
+        "responseDelayMs": 50,
+        "responseHeaders": {"Content-Type": "application/json"}
       }
     ]
   },

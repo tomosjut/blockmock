@@ -28,13 +28,14 @@ services:
     container_name: demo-artemis
     ports:
       - "61616:61616"  # JMS poort
+      - "61613:61613"  # STOMP poort
       - "8161:8161"    # Management console
     environment:
       AMQ_USER: admin
       AMQ_PASSWORD: admin
       AMQ_ROLE: admin
       AMQ_NAME: artemis-broker
-      AMQ_EXTRA_ARGS: --http-host 0.0.0.0 --relax-jolokia
+      AMQ_EXTRA_ARGS: --relax-jolokia
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8161/console || exit 1"]
       interval: 10s
@@ -55,6 +56,9 @@ services:
       MQ_QMGR_NAME: QM1
       MQ_APP_PASSWORD: passw0rd
       MQ_ADMIN_PASSWORD: passw0rd
+      MQ_ENABLE_EMBEDDED_WEB_SERVER: "true"
+      MQ_WEB_CONSOLE_USER: admin
+      MQ_WEB_CONSOLE_PASSWORD: passw0rd
     volumes:
       - ibmmq-data:/mnt/mqm
     healthcheck:
@@ -65,9 +69,28 @@ services:
     networks:
       - broker-demo
 
+  # SFTP Server - OpenSSH
+  sftp:
+    build:
+      context: ./sftp
+      dockerfile: Dockerfile
+    container_name: demo-sftp
+    ports:
+      - "2222:2222"    # SFTP poort
+    volumes:
+      - sftp-uploads:/home/sftpuser/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "netstat -tln | grep 2222 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - broker-demo
+
 networks:
   broker-demo:
     driver: bridge
 
 volumes:
   ibmmq-data:
+  sftp-uploads:
