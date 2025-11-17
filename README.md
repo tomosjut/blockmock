@@ -31,7 +31,7 @@ BlockMock is een generieke mock server die verschillende protocollen en communic
 
 ### Prerequisites
 - Java 21+
-- Docker & Docker Compose
+- Docker & Docker Compose **OF** Podman & podman-compose
 - Maven 3.8+
 
 ### Installatie
@@ -43,12 +43,54 @@ cd blockmock
 
 # Start de applicatie
 ./start.sh
+
+# Stop de applicatie (als je klaar bent)
+./stop.sh
 ```
 
 De applicatie is nu beschikbaar op:
 - **Web UI**: http://localhost:8080
 - **Swagger UI**: http://localhost:8080/swagger-ui
 - **OpenAPI Spec**: http://localhost:8080/openapi
+
+### 🐳 Docker vs Podman
+
+BlockMock ondersteunt zowel Docker als Podman! Het `start.sh` script detecteert automatisch welke container runtime beschikbaar is.
+
+**Met Podman:**
+```bash
+# Installeer Podman (Ubuntu/Debian)
+sudo apt-get install podman
+
+# Installeer podman-compose
+pip3 install podman-compose
+
+# Of gebruik ingebouwde 'podman compose' (Podman 4.0+)
+# Geen extra installatie nodig
+
+# Start de applicatie (werkt hetzelfde)
+./start.sh
+```
+
+**Handmatig starten met Podman:**
+```bash
+# Start PostgreSQL
+podman-compose up -d postgres
+# Of: podman compose up -d postgres
+
+# Start de applicatie
+mvn quarkus:dev
+
+# Stop alles
+podman-compose down
+# Of: podman compose down
+```
+
+**Voordelen van Podman:**
+- ✅ Rootless containers (betere beveiliging)
+- ✅ Docker-compatibel (zelfde commando's)
+- ✅ Geen daemon vereist
+- ✅ Kubernetes YAML ondersteuning
 
 ## 📖 Gebruikshandleiding
 
@@ -286,8 +328,12 @@ quarkus.swagger-ui.path=/swagger-ui
 # Run tests
 ./mvnw test
 
-# Build Docker image
+# Build container image (Docker)
 ./mvnw package -Dquarkus.container-image.build=true
+
+# Build container image (Podman)
+./mvnw package -Dquarkus.container-image.build=true \
+  -Dquarkus.container-image.builder=podman
 ```
 
 ## 🤝 Contributing
