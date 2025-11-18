@@ -126,7 +126,7 @@
                 <h2 id="modal-title">Nieuwe Mock Endpoint</h2>
                 <button class="close" onclick="closeEndpointModal()">&times;</button>
             </div>
-            <form id="endpoint-form" onsubmit="saveEndpoint(event)">
+            <form id="endpoint-form" onsubmit="saveEndpoint(event); return false;">
                 <div class="form-group">
                     <label for="endpoint-name">Naam *</label>
                     <input type="text" id="endpoint-name" required placeholder="Bijv. User API Mock">

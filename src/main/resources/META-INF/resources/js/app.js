@@ -244,6 +244,9 @@ function showCreateEndpoint() {
     // Add default response
     addResponse(true);
 
+    // Initialize protocol fields (this will set correct required attributes)
+    toggleProtocolFields();
+
     document.getElementById('endpoint-modal').classList.add('active');
 }
 
@@ -516,36 +519,55 @@ function toggleProtocolFields() {
     const grpcFields = document.getElementById('grpc-fields');
     const websocketFields = document.getElementById('websocket-fields');
 
-    // Hide all
-    httpFields.style.display = 'none';
-    sftpFields.style.display = 'none';
-    amqpFields.style.display = 'none';
-    sqlFields.style.display = 'none';
-    mqttFields.style.display = 'none';
-    nosqlFields.style.display = 'none';
-    kafkaFields.style.display = 'none';
-    grpcFields.style.display = 'none';
-    websocketFields.style.display = 'none';
+    // Helper function to disable required fields in a container
+    function disableRequiredFields(container) {
+        container.querySelectorAll('[required]').forEach(field => {
+            field.removeAttribute('required');
+            field.dataset.wasRequired = 'true';
+        });
+    }
 
-    // Show relevant
+    // Helper function to enable required fields in a container
+    function enableRequiredFields(container) {
+        container.querySelectorAll('[data-was-required="true"]').forEach(field => {
+            field.setAttribute('required', 'required');
+        });
+    }
+
+    // Hide all and disable required fields
+    [httpFields, sftpFields, amqpFields, sqlFields, mqttFields, nosqlFields, kafkaFields, grpcFields, websocketFields].forEach(fieldSet => {
+        fieldSet.style.display = 'none';
+        disableRequiredFields(fieldSet);
+    });
+
+    // Show relevant and enable required fields
     if (protocol === 'HTTP' || protocol === 'HTTPS') {
         httpFields.style.display = 'block';
+        enableRequiredFields(httpFields);
     } else if (protocol === 'SFTP') {
         sftpFields.style.display = 'block';
+        enableRequiredFields(sftpFields);
     } else if (protocol === 'AMQP') {
         amqpFields.style.display = 'block';
+        enableRequiredFields(amqpFields);
     } else if (protocol === 'SQL') {
         sqlFields.style.display = 'block';
+        enableRequiredFields(sqlFields);
     } else if (protocol === 'MQTT') {
         mqttFields.style.display = 'block';
+        enableRequiredFields(mqttFields);
     } else if (protocol === 'NOSQL') {
         nosqlFields.style.display = 'block';
+        enableRequiredFields(nosqlFields);
     } else if (protocol === 'KAFKA') {
         kafkaFields.style.display = 'block';
+        enableRequiredFields(kafkaFields);
     } else if (protocol === 'GRPC') {
         grpcFields.style.display = 'block';
+        enableRequiredFields(grpcFields);
     } else if (protocol === 'WEBSOCKET') {
         websocketFields.style.display = 'block';
+        enableRequiredFields(websocketFields);
     }
 }
 
