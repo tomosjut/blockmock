@@ -241,8 +241,8 @@ function showCreateEndpoint() {
     document.getElementById('endpoint-form').reset();
     document.getElementById('endpoint-enabled').checked = true;
 
-    // Add default response
-    addResponse(true);
+    // Add initial response
+    addResponse();
 
     // Initialize protocol fields (this will set correct required attributes)
     toggleProtocolFields();
@@ -251,20 +251,19 @@ function showCreateEndpoint() {
 }
 
 // Add response card
-function addResponse(isDefault = false) {
+function addResponse() {
     const responseId = responseIdCounter++;
     const response = {
         id: responseId,
-        name: isDefault ? 'Default Response' : `Response ${responseId + 1}`,
-        priority: isDefault ? 0 : responses.length,
+        name: `Response ${responses.length + 1}`,
+        priority: responses.length,
         matchHeaders: {},
         matchQueryParams: {},
         matchBody: '',
         responseStatusCode: 200,
         responseBody: '',
         responseHeaders: {},
-        responseDelayMs: 0,
-        isDefault: isDefault
+        responseDelayMs: 0
     };
 
     responses.push(response);
@@ -298,22 +297,26 @@ function moveResponseDown(responseId) {
 // Render responses
 function renderResponses() {
     const container = document.getElementById('responses-container');
+    const hasCatchAll = responses.some(r => !r.matchBody && (!r.matchHeaders || Object.keys(r.matchHeaders).length === 0) && (!r.matchQueryParams || Object.keys(r.matchQueryParams).length === 0));
+
     container.innerHTML = responses.map((response, index) => `
-        <div class="response-card ${response.isDefault ? 'default' : ''}" data-response-id="${response.id}">
+        <div class="response-card" data-response-id="${response.id}">
             <div class="response-card-header">
-                <h4>${response.isDefault ? '🌟 ' : ''}${response.name}</h4>
+                <h4>${response.name}</h4>
                 <div class="response-card-actions">
-                    ${!response.isDefault ? `
-                        <button type="button" class="btn btn-small btn-secondary" onclick="moveResponseUp(${response.id})" ${index === 0 ? 'disabled' : ''} title="Omhoog">⬆️</button>
-                        <button type="button" class="btn btn-small btn-secondary" onclick="moveResponseDown(${response.id})" ${index === responses.length - 1 ? 'disabled' : ''} title="Omlaag">⬇️</button>
-                        <button type="button" class="btn btn-small btn-danger" onclick="removeResponse(${response.id})" title="Verwijderen">🗑️</button>
-                    ` : ''}
+                    <button type="button" class="btn btn-small btn-secondary" onclick="moveResponseUp(${response.id})" ${index === 0 ? 'disabled' : ''} title="Omhoog">⬆️</button>
+                    <button type="button" class="btn btn-small btn-secondary" onclick="moveResponseDown(${response.id})" ${index === responses.length - 1 ? 'disabled' : ''} title="Omlaag">⬇️</button>
+                    <button type="button" class="btn btn-small btn-danger" onclick="removeResponse(${response.id})" ${responses.length === 1 ? 'disabled' : ''} title="Verwijderen">🗑️</button>
                 </div>
             </div>
             <div class="response-card-body">
-                ${!response.isDefault ? `
                 <div class="response-section">
                     <h5>Matching Criteria</h5>
+                    <div class="form-group">
+                        <label>Priority</label>
+                        <input type="number" class="response-priority" data-response-id="${response.id}" value="${response.priority}" min="0" max="100">
+                        <small>Hogere priority wordt eerst gecontroleerd (0 = laagste)</small>
+                    </div>
                     <div class="form-group">
                         <label>Match Headers (JSON)</label>
                         <textarea class="response-match-headers" data-response-id="${response.id}" rows="2" placeholder='{"Authorization": "Bearer token"}'>${JSON.stringify(response.matchHeaders || {}, null, 2)}</textarea>
@@ -330,7 +333,6 @@ function renderResponses() {
                         <small>Leeg = altijd match, anders exacte text of /regex/ pattern</small>
                     </div>
                 </div>
-                ` : ''}
                 <div class="response-section">
                     <h5>Response Configuration</h5>
                     <div class="form-row">
@@ -356,6 +358,17 @@ function renderResponses() {
         </div>
     `).join('');
 
+    // Add warning if no catch-all response exists
+    if (!hasCatchAll && responses.length > 0) {
+        container.innerHTML += `
+            <div class="alert alert-warning" style="margin-top: 1rem;">
+                💡 <strong>Tip:</strong> Dit endpoint heeft geen catch-all response.
+                Requests die niet matchen met de criteria krijgen een 404 error.
+                Voeg een response toe met lege match criteria (priority 0) als fallback.
+            </div>
+        `;
+    }
+
     // Attach event listeners to update response data
     attachResponseListeners();
 }
@@ -377,6 +390,15 @@ function attachResponseListeners() {
             const responseId = parseInt(e.target.dataset.responseId);
             const response = responses.find(r => r.id === responseId);
             if (response) response.responseDelayMs = parseInt(e.target.value);
+        });
+    });
+
+    // Priority
+    document.querySelectorAll('.response-priority').forEach(input => {
+        input.addEventListener('change', (e) => {
+            const responseId = parseInt(e.target.dataset.responseId);
+            const response = responses.find(r => r.id === responseId);
+            if (response) response.priority = parseInt(e.target.value);
         });
     });
 
@@ -481,10 +503,7 @@ async function showEditEndpoint(id) {
                     responseStatusCode: resp.responseStatusCode || 200,
                     responseBody: resp.responseBody || '',
                     responseHeaders: resp.responseHeaders || {},
-                    responseDelayMs: resp.responseDelayMs || 0,
-                    isDefault: index === 0 && (!resp.matchHeaders || Object.keys(resp.matchHeaders).length === 0) &&
-                               (!resp.matchQueryParams || Object.keys(resp.matchQueryParams).length === 0) &&
-                               !resp.matchBody
+                    responseDelayMs: resp.responseDelayMs || 0
                 });
             });
         } else {

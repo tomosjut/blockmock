@@ -21,8 +21,8 @@
     ]
   },
   {
-    "name": "Demo: HTTP POST Create User",
-    "description": "REST API endpoint voor nieuwe gebruiker aanmaken",
+    "name": "Demo: HTTP POST Create User (met body matching)",
+    "description": "REST API endpoint met verschillende responses gebaseerd op request body",
     "protocol": "HTTP",
     "pattern": "REQUEST_REPLY",
     "enabled": true,
@@ -33,11 +33,128 @@
     },
     "responses": [
       {
-        "name": "Created Response",
+        "name": "Admin User Created",
+        "priority": 20,
+        "matchBody": "\"role\": \"admin\"",
         "responseStatusCode": 201,
-        "responseBody": "{\"id\": 4, \"name\": \"John Doe\", \"email\": \"john@example.com\", \"role\": \"developer\", \"created_at\": \"2025-11-17T10:00:00Z\"}",
+        "responseBody": "{\"id\": 100, \"name\": \"Admin User\", \"email\": \"admin@example.com\", \"role\": \"admin\", \"permissions\": [\"read\", \"write\", \"delete\"], \"created_at\": \"2025-11-18T10:00:00Z\"}",
+        "responseDelayMs": 150,
+        "responseHeaders": {"Content-Type": "application/json", "Location": "/api/users/100", "X-User-Type": "admin"}
+      },
+      {
+        "name": "Premium User Created",
+        "priority": 15,
+        "matchBody": "/\"premium\":\\s*true/",
+        "responseStatusCode": 201,
+        "responseBody": "{\"id\": 101, \"name\": \"Premium User\", \"email\": \"premium@example.com\", \"role\": \"user\", \"tier\": \"premium\", \"trial_days\": 30, \"created_at\": \"2025-11-18T10:00:00Z\"}",
+        "responseDelayMs": 100,
+        "responseHeaders": {"Content-Type": "application/json", "Location": "/api/users/101", "X-User-Tier": "premium"}
+      },
+      {
+        "name": "Invalid Email Format",
+        "priority": 10,
+        "matchBody": "/\"email\":\\s*\"[^@]*\"/",
+        "responseStatusCode": 400,
+        "responseBody": "{\"error\": \"Invalid email format\", \"message\": \"Email must contain @ symbol\"}",
+        "responseDelayMs": 50,
+        "responseHeaders": {"Content-Type": "application/json"}
+      },
+      {
+        "name": "Default User Created",
+        "priority": 0,
+        "responseStatusCode": 201,
+        "responseBody": "{\"id\": 4, \"name\": \"John Doe\", \"email\": \"john@example.com\", \"role\": \"developer\", \"created_at\": \"2025-11-18T10:00:00Z\"}",
         "responseDelayMs": 150,
         "responseHeaders": {"Content-Type": "application/json", "Location": "/api/users/4"}
+      }
+    ]
+  },
+  {
+    "name": "Demo: HTTP PUT Update User (met body matching)",
+    "description": "REST API endpoint voor gebruiker updaten met body matching",
+    "protocol": "HTTP",
+    "pattern": "REQUEST_REPLY",
+    "enabled": true,
+    "httpConfig": {
+      "method": "PUT",
+      "path": "/api/users/[0-9]+",
+      "pathRegex": true
+    },
+    "responses": [
+      {
+        "name": "Suspend User",
+        "priority": 20,
+        "matchBody": "\"status\": \"suspended\"",
+        "responseStatusCode": 200,
+        "responseBody": "{\"id\": 123, \"name\": \"Suspended User\", \"email\": \"user@example.com\", \"status\": \"suspended\", \"suspended_at\": \"2025-11-18T10:00:00Z\", \"reason\": \"Account suspended\"}",
+        "responseDelayMs": 100,
+        "responseHeaders": {"Content-Type": "application/json", "X-Action": "suspend"}
+      },
+      {
+        "name": "Activate User",
+        "priority": 15,
+        "matchBody": "\"status\": \"active\"",
+        "responseStatusCode": 200,
+        "responseBody": "{\"id\": 123, \"name\": \"Active User\", \"email\": \"user@example.com\", \"status\": \"active\", \"activated_at\": \"2025-11-18T10:00:00Z\"}",
+        "responseDelayMs": 100,
+        "responseHeaders": {"Content-Type": "application/json", "X-Action": "activate"}
+      },
+      {
+        "name": "Role Change Not Allowed",
+        "priority": 10,
+        "matchBody": "\"role\":",
+        "responseStatusCode": 403,
+        "responseBody": "{\"error\": \"Forbidden\", \"message\": \"Role changes require admin privileges\"}",
+        "responseDelayMs": 50,
+        "responseHeaders": {"Content-Type": "application/json"}
+      },
+      {
+        "name": "Default Update Success",
+        "priority": 0,
+        "responseStatusCode": 200,
+        "responseBody": "{\"id\": 123, \"name\": \"Updated User\", \"email\": \"updated@example.com\", \"role\": \"developer\", \"updated_at\": \"2025-11-18T10:00:00Z\"}",
+        "responseDelayMs": 100,
+        "responseHeaders": {"Content-Type": "application/json"}
+      }
+    ]
+  },
+  {
+    "name": "Demo: HTTP PATCH Partial Update (met body matching)",
+    "description": "REST API endpoint voor gedeeltelijke updates met body matching",
+    "protocol": "HTTP",
+    "pattern": "REQUEST_REPLY",
+    "enabled": true,
+    "httpConfig": {
+      "method": "PATCH",
+      "path": "/api/users/[0-9]+",
+      "pathRegex": true
+    },
+    "responses": [
+      {
+        "name": "Email Updated",
+        "priority": 15,
+        "matchBody": "\"email\":",
+        "responseStatusCode": 200,
+        "responseBody": "{\"id\": 123, \"email\": \"newemail@example.com\", \"email_verified\": false, \"verification_sent\": true, \"updated_at\": \"2025-11-18T10:00:00Z\"}",
+        "responseDelayMs": 100,
+        "responseHeaders": {"Content-Type": "application/json", "X-Verification-Required": "true"}
+      },
+      {
+        "name": "Password Updated",
+        "priority": 10,
+        "matchBody": "/\"password\":/",
+        "responseStatusCode": 200,
+        "responseBody": "{\"id\": 123, \"message\": \"Password updated successfully\", \"password_changed_at\": \"2025-11-18T10:00:00Z\", \"force_logout_other_sessions\": true}",
+        "responseDelayMs": 150,
+        "responseHeaders": {"Content-Type": "application/json", "X-Security-Action": "password-change"}
+      },
+      {
+        "name": "Default Partial Update",
+        "priority": 0,
+        "responseStatusCode": 200,
+        "responseBody": "{\"id\": 123, \"updated_at\": \"2025-11-18T10:00:00Z\", \"message\": \"User updated successfully\"}",
+        "responseDelayMs": 50,
+        "responseHeaders": {"Content-Type": "application/json"}
       }
     ]
   },
