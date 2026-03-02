@@ -16,7 +16,12 @@ if command -v podman &> /dev/null && podman info > /dev/null 2>&1; then
 fi
 
 if [ -z "$COMPOSE_CMD" ] && command -v docker &> /dev/null && docker info > /dev/null 2>&1; then
-    COMPOSE_CMD="docker-compose"
+    # Prefer Docker Compose v2 (plugin), fall back to v1 standalone
+    if docker compose version &> /dev/null; then
+        COMPOSE_CMD="docker compose"
+    else
+        COMPOSE_CMD="docker-compose"
+    fi
 fi
 
 if [ -z "$COMPOSE_CMD" ]; then

@@ -19,6 +19,7 @@ document.querySelectorAll('.tab').forEach(tab => {
         else if (tabName === 'scenarios') loadScenarios();
         else if (tabName === 'metrics') loadMetrics();
         else if (tabName === 'blocks') loadBlocks();
+        else if (tabName === 'test-suites') loadTestSuites();
         else if (tabName === 'endpoints') loadEndpoints();
         else if (tabName === 'logs') loadLogs();
     });
@@ -1337,7 +1338,7 @@ function showCreateScenario() {
     document.getElementById('scenario-form').reset();
     document.getElementById('scenario-color').value = '#667eea';
     document.getElementById('scenario-steps-container').innerHTML = '';
-    document.getElementById('scenario-modal').style.display = 'block';
+    document.getElementById('scenario-modal').classList.add('active');
 }
 
 // Show edit scenario modal
@@ -1360,7 +1361,7 @@ async function showEditScenario(id) {
             await addScenarioStepWithData(step);
         }
 
-        document.getElementById('scenario-modal').style.display = 'block';
+        document.getElementById('scenario-modal').classList.add('active');
     } catch (error) {
         alert('Error loading scenario: ' + error.message);
     }
@@ -1368,7 +1369,7 @@ async function showEditScenario(id) {
 
 // Close scenario modal
 function closeScenarioModal() {
-    document.getElementById('scenario-modal').style.display = 'none';
+    document.getElementById('scenario-modal').classList.remove('active');
 }
 
 // Add scenario step
@@ -1662,6 +1663,8 @@ function updateAmqpDefaults() {
     const vhostLabel = document.getElementById('amqp-vhost-label');
     const vhostHint = document.getElementById('amqp-vhost-hint');
     const brokerHint = document.getElementById('amqp-broker-hint');
+    const exchangeNameField = document.getElementById('amqp-exchange-name');
+    const exchangeNameLabel = exchangeNameField?.previousElementSibling;
 
     if (brokerType === 'RABBITMQ') {
         portField.value = '5672';
@@ -1670,6 +1673,8 @@ function updateAmqpDefaults() {
         vhostLabel.textContent = 'Virtual Host';
         vhostHint.textContent = 'RabbitMQ virtual host (default: /)';
         brokerHint.textContent = 'RabbitMQ - Default poort: 5672, Protocol: AMQP 0.9.1';
+        if (exchangeNameLabel) exchangeNameLabel.textContent = 'Exchange Name *';
+        if (exchangeNameField) exchangeNameField.placeholder = 'my-exchange';
     } else if (brokerType === 'ARTEMIS') {
         portField.value = '61616';
         vhostField.value = '/';
@@ -1677,16 +1682,530 @@ function updateAmqpDefaults() {
         vhostLabel.textContent = 'Virtual Host';
         vhostHint.textContent = 'Artemis ondersteunt geen virtual hosts (gebruik /)';
         brokerHint.textContent = 'Apache Artemis - Default poort: 61616, Protocol: JMS 2.0';
+        if (exchangeNameLabel) exchangeNameLabel.textContent = 'Exchange Name *';
+        if (exchangeNameField) exchangeNameField.placeholder = 'my-exchange';
     } else if (brokerType === 'IBM_MQ') {
         portField.value = '1414';
         vhostField.value = 'QM1';
         vhostField.placeholder = 'QM1';
         vhostLabel.textContent = 'Queue Manager';
         vhostHint.textContent = 'IBM MQ Queue Manager naam (bijv. QM1)';
-        brokerHint.textContent = 'IBM MQ - Default poort: 1414, Protocol: JMS via IBM MQ';
+        brokerHint.textContent = 'IBM MQ - Default poort: 1414, Protocol: JMS via IBM MQ. Channel: vul "DEV.APP.SVRCONN" in als Exchange Name.';
+        if (exchangeNameLabel) exchangeNameLabel.textContent = 'Channel Name *';
+        if (exchangeNameField) exchangeNameField.placeholder = 'DEV.APP.SVRCONN';
     }
 }
 
 // Initialize on page load
 loadDashboard();
+
+// ===================================
+// TEST SUITES FUNCTIONS
+// ===================================
+
+document.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('modal')) return;
+    const id = e.target.id;
+    if (id === 'test-suite-modal') closeTestSuiteModal();
+    else if (id === 'test-run-modal') closeTestRunModal();
+    else if (id === 'block-modal') closeBlockModal();
+    else if (id === 'endpoint-modal') closeEndpointModal();
+    else if (id === 'log-detail-modal') closeLogDetailModal();
+    else if (id === 'scenario-modal') closeScenarioModal();
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const activeModal = document.querySelector('.modal.active');
+        if (!activeModal) return;
+        if (activeModal.id === 'test-suite-modal') closeTestSuiteModal();
+        else if (activeModal.id === 'test-run-modal') closeTestRunModal();
+        else if (activeModal.id === 'block-modal') closeBlockModal();
+        else if (activeModal.id === 'endpoint-modal') closeEndpointModal();
+        else if (activeModal.id === 'log-detail-modal') closeLogDetailModal();
+        else if (activeModal.id === 'scenario-modal') closeScenarioModal();
+    }
+});
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+let currentTestSuiteId = null;
+let selectedBlockIds = [];
+let testExpectationCounter = 0;
+let activeRunId = null;
+let activeSuiteId = null;
+let activeRunTimerInterval = null;
+let allEndpointsForSuite = [];
+
+async function loadTestSuites() {
+    try {
+        const suites = await fetch('/api/test-suites').then(r => r.json());
+        const container = document.getElementById('test-suites-list');
+
+        if (suites.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                    <h3>Nog geen test suites</h3>
+                    <p>Klik op "Nieuwe Test Suite" om te beginnen</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = suites.map(suite => `
+            <div class="scenario-card" style="border-left: 4px solid ${suite.color || '#667eea'}">
+                <div class="scenario-header">
+                    <div>
+                        <h3>${escHtml(suite.name)}</h3>
+                        ${suite.description ? `<p>${escHtml(suite.description)}</p>` : ''}
+                        <small style="color:#6b7280">${(suite.expectations || []).length} expectation(s) &bull; ${(suite.blocks || []).length} block(s)</small>
+                    </div>
+                    <div class="scenario-actions">
+                        <button class="btn btn-small btn-success" onclick="startTestRun(${suite.id})">▶ Start Run</button>
+                        <button class="btn btn-small btn-secondary" onclick="showEditTestSuite(${suite.id})" title="Bewerken">✏️</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteTestSuite(${suite.id})" title="Verwijderen">🗑️</button>
+                    </div>
+                </div>
+                <div id="suite-run-panel-${suite.id}" style="display:none; margin-top: 12px; padding: 12px; background: #f0fdf4; border-radius: 6px;">
+                    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                        <span style="font-weight:600; color:#16a34a">Run actief</span>
+                        <span id="suite-timer-${suite.id}" style="font-family:monospace; font-size:1.1em;">00:00</span>
+                        <button class="btn btn-danger" onclick="stopTestRun(${suite.id})">■ Stop &amp; Rapport</button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading test suites:', error);
+        document.getElementById('test-suites-list').innerHTML = `
+            <div class="empty-state">
+                <h3>Error bij laden test suites</h3>
+                <p>${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+async function startTestRun(suiteId) {
+    if (activeRunId) {
+        alert('Er is al een actieve run. Stop de huidige run voor je een nieuwe start.');
+        return;
+    }
+
+    // Warn if blocks will be activated
+    try {
+        const suite = await fetch(`/api/test-suites/${suiteId}`).then(r => r.json());
+        const blockCount = (suite.blocks || []).length;
+        if (blockCount > 0) {
+            const ok = confirm(
+                `Deze test suite zal ${blockCount} block(s) activeren op de mock server.\n\nDoorgaan?`
+            );
+            if (!ok) return;
+        }
+    } catch (_) { /* non-fatal, proceed */ }
+
+    const startBtn = document.querySelector(`[onclick="startTestRun(${suiteId})"]`);
+    if (startBtn) { startBtn.disabled = true; startBtn.textContent = '...'; }
+
+    try {
+        const response = await fetch(`/api/test-suites/${suiteId}/runs`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to start test run');
+
+        const run = await response.json();
+        activeRunId = run.id;
+        activeSuiteId = suiteId;
+
+        // Show the run panel
+        const panel = document.getElementById(`suite-run-panel-${suiteId}`);
+        if (panel) panel.style.display = 'block';
+
+        // Disable all other Start Run buttons
+        document.querySelectorAll('[onclick^="startTestRun"]').forEach(btn => {
+            if (btn !== startBtn) btn.disabled = true;
+        });
+
+        // Start the timer
+        const startTime = Date.now();
+        if (activeRunTimerInterval) clearInterval(activeRunTimerInterval);
+        activeRunTimerInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            const hh = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+            const mm = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+            const ss = String(elapsed % 60).padStart(2, '0');
+            const timerEl = document.getElementById(`suite-timer-${suiteId}`);
+            if (timerEl) timerEl.textContent = elapsed >= 3600 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`;
+        }, 1000);
+
+    } catch (error) {
+        if (startBtn) { startBtn.disabled = false; startBtn.textContent = '▶ Start Run'; }
+        alert('Error bij starten test run: ' + error.message);
+    }
+}
+
+async function stopTestRun(suiteId) {
+    if (!activeRunId) {
+        alert('Geen actieve run gevonden.');
+        return;
+    }
+
+    if (activeRunTimerInterval) {
+        clearInterval(activeRunTimerInterval);
+        activeRunTimerInterval = null;
+    }
+
+    const panel = document.getElementById(`suite-run-panel-${suiteId}`);
+    if (panel) panel.style.display = 'none';
+
+    try {
+        const response = await fetch(`/api/test-suites/${suiteId}/runs/${activeRunId}/complete`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to complete test run');
+
+        const run = await response.json();
+
+        // Re-enable all Start Run buttons
+        document.querySelectorAll('[onclick^="startTestRun"]').forEach(btn => {
+            btn.disabled = false;
+            btn.textContent = '▶ Start Run';
+        });
+
+        const suiteName = document.querySelector(`#suite-run-panel-${suiteId}`)
+            ?.closest('.scenario-card')
+            ?.querySelector('h3')?.textContent || '';
+        showTestRunReport(suiteId, run, suiteName);
+        activeRunId = null;
+        activeSuiteId = null;
+    } catch (error) {
+        alert('Error bij stoppen test run: ' + error.message);
+    }
+}
+
+function showTestRunReport(suiteId, run, suiteName) {
+    const results = run.results || [];
+    const passed = results.filter(r => r.passed).length;
+    const failed = results.filter(r => !r.passed).length;
+    const statusBadge = run.status === 'COMPLETED'
+        ? '<span class="badge success">PASSED</span>'
+        : (run.status === 'FAILED' ? '<span class="badge error">FAILED</span>' : `<span class="badge info">${run.status}</span>`);
+
+    let html = `
+        <div style="margin-bottom:16px;">
+            <strong>Status:</strong> ${statusBadge}
+            &nbsp; <strong>Passed:</strong> ${passed}
+            &nbsp; <strong>Failed:</strong> ${failed}
+        </div>
+        <div class="table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Expectation</th>
+                        <th>Stap</th>
+                        <th>Status</th>
+                        <th>Actual Calls</th>
+                        <th>Reden</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${results.map(r => {
+                        const isSeqFail = r.failureReason?.startsWith('Volgorde-fout:');
+                        const statusBadgeResult = r.passed
+                            ? '<span class="badge success">✓ Passed</span>'
+                            : (isSeqFail
+                                ? '<span class="badge error">🔀 Failed</span>'
+                                : '<span class="badge error">✗ Failed</span>');
+                        const stepVal = r.testExpectation?.expectationOrder ?? '-';
+                        return `
+                        <tr>
+                            <td>${escHtml(r.testExpectation?.name || 'Unknown')}</td>
+                            <td>${stepVal}</td>
+                            <td>${statusBadgeResult}</td>
+                            <td>${r.actualCallCount}</td>
+                            <td>${escHtml(r.failureReason || '-')}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+        <div style="margin-top:12px;">
+            <button class="btn btn-secondary" onclick="downloadJUnitXml(${suiteId}, ${run.id})">
+                ⬇ Download JUnit XML
+            </button>
+        </div>
+    `;
+
+    document.getElementById('test-run-modal-title').textContent =
+        suiteName ? `Rapport: ${suiteName}` : 'Test Run Rapport';
+    document.getElementById('test-run-modal-body').innerHTML = html;
+    document.getElementById('test-run-modal').classList.add('active');
+}
+
+async function downloadJUnitXml(suiteId, runId) {
+    try {
+        const response = await fetch(`/api/test-suites/${suiteId}/runs/${runId}/junit`);
+        if (!response.ok) throw new Error('Failed to fetch JUnit XML');
+        const xml = await response.text();
+        const blob = new Blob([xml], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `test-results-${runId}.xml`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        alert('Error bij downloaden JUnit XML: ' + error.message);
+    }
+}
+
+function closeTestRunModal() {
+    document.getElementById('test-run-modal').classList.remove('active');
+}
+
+async function showCreateTestSuite() {
+    currentTestSuiteId = null;
+    selectedBlockIds = [];
+    testExpectationCounter = 0;
+
+    document.getElementById('test-suite-modal-title').textContent = 'Nieuwe Test Suite';
+    document.getElementById('test-suite-form').reset();
+    document.getElementById('test-suite-color').value = '#667eea';
+    document.getElementById('test-suite-expectations-container').innerHTML = '';
+
+    await loadBlocksForSuiteSelection();
+    await loadEndpointsForSuiteExpectations();
+
+    document.getElementById('test-suite-modal').classList.add('active');
+    document.getElementById('test-suite-name').focus();
+}
+
+async function showEditTestSuite(id) {
+    currentTestSuiteId = id;
+    testExpectationCounter = 0;
+
+    document.getElementById('test-suite-modal-title').textContent = 'Test Suite Bewerken';
+
+    try {
+        const suite = await fetch(`/api/test-suites/${id}`).then(r => r.json());
+
+        document.getElementById('test-suite-name').value = suite.name || '';
+        document.getElementById('test-suite-description').value = suite.description || '';
+        document.getElementById('test-suite-color').value = suite.color || '#667eea';
+
+        selectedBlockIds = (suite.blocks || []).map(b => b.id);
+
+        await loadBlocksForSuiteSelection();
+        await loadEndpointsForSuiteExpectations();
+
+        // Load existing expectations
+        document.getElementById('test-suite-expectations-container').innerHTML = '';
+        for (const exp of (suite.expectations || [])) {
+            addTestExpectationWithData(exp);
+        }
+
+        document.getElementById('test-suite-modal').classList.add('active');
+        document.getElementById('test-suite-name').focus();
+    } catch (error) {
+        alert('Error bij laden test suite: ' + error.message);
+    }
+}
+
+async function loadBlocksForSuiteSelection() {
+    try {
+        const blocks = await fetch('/api/blocks').then(r => r.json());
+        const container = document.getElementById('test-suite-blocks-selection');
+
+        if (blocks.length === 0) {
+            container.innerHTML = '<p style="color:#9ca3af; padding:12px;">Geen blocks beschikbaar</p>';
+            return;
+        }
+
+        container.innerHTML = blocks.map(block => `
+            <div class="endpoint-checkbox-item">
+                <input type="checkbox"
+                       id="suite-block-${block.id}"
+                       value="${block.id}"
+                       ${selectedBlockIds.includes(block.id) ? 'checked' : ''}
+                       onchange="toggleBlockSelection(${block.id})">
+                <label class="endpoint-checkbox-label" for="suite-block-${block.id}">
+                    <strong>${escHtml(block.name)}</strong>
+                    <div class="endpoint-checkbox-meta">${block.endpointCount || 0} endpoints</div>
+                </label>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading blocks for suite selection:', error);
+    }
+}
+
+async function loadEndpointsForSuiteExpectations() {
+    try {
+        allEndpointsForSuite = await fetch('/api/endpoints').then(r => r.json());
+    } catch (error) {
+        console.error('Error loading endpoints for suite expectations:', error);
+        allEndpointsForSuite = [];
+    }
+}
+
+function toggleBlockSelection(blockId) {
+    if (selectedBlockIds.includes(blockId)) {
+        selectedBlockIds = selectedBlockIds.filter(id => id !== blockId);
+    } else {
+        selectedBlockIds.push(blockId);
+    }
+}
+
+function addTestExpectation() {
+    addTestExpectationWithData(null);
+}
+
+function addTestExpectationWithData(expData) {
+    const expId = testExpectationCounter++;
+    const container = document.getElementById('test-suite-expectations-container');
+
+    const div = document.createElement('div');
+    div.className = 'scenario-step';
+    div.id = `expectation-${expId}`;
+    div.innerHTML = `
+        <div class="step-header">
+            <h4>Expectation ${expId + 1}</h4>
+            <button type="button" class="btn btn-small btn-danger" onclick="removeTestExpectation(${expId})">✖</button>
+        </div>
+        <div class="form-group">
+            <label for="exp-name-${expId}">Naam *</label>
+            <input type="text" id="exp-name-${expId}" value="${escHtml(expData?.name || '')}" required placeholder="Bijv. Order service aangeroepen">
+        </div>
+        <div class="form-row-3">
+            <div class="form-group">
+                <label for="exp-endpoint-${expId}">Mock Endpoint</label>
+                <select id="exp-endpoint-${expId}">
+                    <option value="">-- Kies endpoint --</option>
+                    ${allEndpointsForSuite.map(e => `
+                        <option value="${e.id}" ${expData?.mockEndpoint?.id === e.id ? 'selected' : ''}>
+                            ${escHtml(e.name)} (${escHtml(e.protocol)})
+                        </option>
+                    `).join('')}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="exp-min-${expId}">Min calls</label>
+                <input type="number" id="exp-min-${expId}" value="${expData?.minCallCount ?? 1}" min="0">
+            </div>
+            <div class="form-group">
+                <label for="exp-max-${expId}">Max calls</label>
+                <input type="number" id="exp-max-${expId}" value="${expData?.maxCallCount ?? ''}" min="0" placeholder="geen max">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="exp-body-${expId}">Vereiste body bevat</label>
+            <input type="text" id="exp-body-${expId}" value="${escHtml(expData?.requiredBodyContains || '')}" placeholder="Optionele substring in de request body">
+        </div>
+        <div class="form-group">
+            <label for="exp-order-${expId}">Volgorde (stap)</label>
+            <input type="number" id="exp-order-${expId}" value="${expData?.expectationOrder ?? ''}" min="1" placeholder="Leeg = geen volgorde">
+        </div>
+    `;
+    container.appendChild(div);
+}
+
+function removeTestExpectation(expId) {
+    document.getElementById(`expectation-${expId}`).remove();
+}
+
+function closeTestSuiteModal() {
+    document.getElementById('test-suite-modal').classList.remove('active');
+    currentTestSuiteId = null;
+    selectedBlockIds = [];
+}
+
+async function saveTestSuite(event) {
+    event.preventDefault();
+
+    // Collect expectations
+    const expectations = [];
+    const container = document.getElementById('test-suite-expectations-container');
+    const expDivs = container.querySelectorAll('.scenario-step');
+
+    let validationError = false;
+    expDivs.forEach(div => {
+        const expId = div.id.split('-')[1];
+        const name = document.getElementById(`exp-name-${expId}`).value;
+        if (!name.trim()) {
+            document.getElementById(`exp-name-${expId}`).focus();
+            validationError = true;
+        }
+        const endpointId = document.getElementById(`exp-endpoint-${expId}`).value;
+        const minCallCount = parseInt(document.getElementById(`exp-min-${expId}`).value) || 1;
+        const maxCallCountVal = document.getElementById(`exp-max-${expId}`).value;
+        const maxCallCount = maxCallCountVal !== '' ? parseInt(maxCallCountVal) : null;
+        const requiredBodyContains = document.getElementById(`exp-body-${expId}`).value || null;
+        const orderVal = document.getElementById(`exp-order-${expId}`).value;
+        const expectationOrder = orderVal !== '' ? parseInt(orderVal) : null;
+
+        const exp = {
+            name,
+            minCallCount,
+            maxCallCount,
+            requiredBodyContains,
+            expectationOrder
+        };
+
+        if (endpointId) {
+            exp.mockEndpoint = { id: parseInt(endpointId) };
+        }
+
+        expectations.push(exp);
+    });
+
+    if (validationError) {
+        alert('Vul alle expectation-namen in.');
+        return;
+    }
+
+    const suite = {
+        name: document.getElementById('test-suite-name').value,
+        description: document.getElementById('test-suite-description').value || null,
+        color: document.getElementById('test-suite-color').value,
+        blocks: selectedBlockIds.map(id => ({ id })),
+        expectations
+    };
+
+    try {
+        const url = currentTestSuiteId ? `/api/test-suites/${currentTestSuiteId}` : '/api/test-suites';
+        const method = currentTestSuiteId ? 'PUT' : 'POST';
+
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(suite)
+        });
+
+        if (!response.ok) throw new Error('Failed to save test suite');
+
+        closeTestSuiteModal();
+        loadTestSuites();
+    } catch (error) {
+        alert('Error bij opslaan test suite: ' + error.message);
+    }
+}
+
+async function deleteTestSuite(id) {
+    if (!confirm('Weet je zeker dat je deze test suite wilt verwijderen?')) return;
+
+    try {
+        const response = await fetch(`/api/test-suites/${id}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Failed to delete test suite');
+        loadTestSuites();
+    } catch (error) {
+        alert('Error bij verwijderen test suite: ' + error.message);
+    }
+}
 startAutoRefresh(); // Start auto-refresh (will only work when logs tab is active)

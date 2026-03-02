@@ -375,6 +375,12 @@ form {
     gap: 20px;
 }
 
+.form-row-3 {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 20px;
+}
+
 .form-group label {
     display: block;
     margin-bottom: 8px;

@@ -39,8 +39,10 @@ public class IbmMqClient implements MessageBrokerClient {
             factory.setQueueManager(config.getVirtualHost());
         }
 
-        // Channel name - can be passed via exchange name or use default
-        String channel = "SYSTEM.DEF.SVRCONN"; // Default channel
+        // Channel name - use exchangeName if provided, otherwise default DEV.APP.SVRCONN
+        String channel = (config.getExchangeName() != null && !config.getExchangeName().isBlank())
+            ? config.getExchangeName()
+            : "DEV.APP.SVRCONN";
         factory.setChannel(channel);
 
         if (config.getUsername() != null && config.getPassword() != null) {

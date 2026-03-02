@@ -15,11 +15,12 @@
 
         <nav class="tabs">
             <button class="tab active" data-tab="dashboard">Dashboard</button>
-            <button class="tab" data-tab="templates">Templates</button>
-            <button class="tab" data-tab="scenarios">Scenarios</button>
-            <button class="tab" data-tab="metrics">Metrics</button>
-            <button class="tab" data-tab="blocks">Blocks</button>
             <button class="tab" data-tab="endpoints">Mock Endpoints</button>
+            <button class="tab" data-tab="blocks">Blocks</button>
+            <button class="tab" data-tab="test-suites">Test Suites</button>
+            <button class="tab" data-tab="scenarios">Scenarios</button>
+            <button class="tab" data-tab="templates">Templates</button>
+            <button class="tab" data-tab="metrics">Metrics</button>
             <button class="tab" data-tab="logs">Request Logs</button>
         </nav>
 
@@ -91,6 +92,16 @@
                     <button class="btn btn-primary" onclick="showCreateBlock()">+ Nieuwe Block</button>
                 </div>
                 <div id="blocks-list"></div>
+            </div>
+
+            <!-- Test Suites Tab -->
+            <div id="test-suites" class="tab-content">
+                <div class="header-row">
+                    <h2>Test Suites</h2>
+                    <button class="btn btn-primary" onclick="showCreateTestSuite()">+ Nieuwe Test Suite</button>
+                </div>
+                <p>Groepeer mock endpoints en verwachtingen in een test suite voor integratietesten.</p>
+                <div id="test-suites-list"></div>
             </div>
 
             <!-- Endpoints Tab -->
@@ -814,6 +825,70 @@
                     <button type="submit" class="btn btn-primary">Opslaan</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal for Create/Edit Test Suite -->
+    <div id="test-suite-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="test-suite-modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="test-suite-modal-title">Nieuwe Test Suite</h2>
+                <button class="close" onclick="closeTestSuiteModal()" aria-label="Test suite sluiten">&times;</button>
+            </div>
+            <form id="test-suite-form" onsubmit="saveTestSuite(event)">
+                <div class="form-group">
+                    <label for="test-suite-name">Naam *</label>
+                    <input type="text" id="test-suite-name" required placeholder="Bijv. Order Flow Integration Test">
+                </div>
+
+                <div class="form-group">
+                    <label for="test-suite-description">Beschrijving</label>
+                    <textarea id="test-suite-description" rows="2" placeholder="Optionele beschrijving van deze test suite"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="test-suite-color">Kleur</label>
+                    <input type="color" id="test-suite-color" value="#667eea">
+                    <small>Kies een kleur voor deze test suite (zichtbaar als linker rand op de kaart)</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Blocks (worden enabled bij start run)</label>
+                    <div id="test-suite-blocks-selection" class="endpoints-selection">
+                        <!-- Blocks checkboxes will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="section-header">
+                    <h3 class="section-title">Expectations</h3>
+                    <button type="button" class="btn btn-small btn-primary" onclick="addTestExpectation()">+ Expectation</button>
+                </div>
+
+                <div id="test-suite-expectations-container">
+                    <!-- Expectations will be added here dynamically -->
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeTestSuiteModal()">Annuleren</button>
+                    <button type="submit" class="btn btn-primary">Opslaan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for Test Run Report -->
+    <div id="test-run-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="test-run-modal-title">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="test-run-modal-title">Test Run Rapport</h2>
+                <button class="close" onclick="closeTestRunModal()" aria-label="Rapport sluiten">&times;</button>
+            </div>
+            <div id="test-run-modal-body">
+                <!-- Run status and results will be shown here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeTestRunModal()">Sluiten</button>
+            </div>
         </div>
     </div>
 

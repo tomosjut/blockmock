@@ -28,7 +28,12 @@ if [ -z "$CONTAINER_RUNTIME" ] && command -v docker &> /dev/null; then
     # Check if Docker is available and running
     if docker info > /dev/null 2>&1; then
         CONTAINER_RUNTIME="docker"
-        COMPOSE_CMD="docker-compose"
+        # Prefer Docker Compose v2 (plugin), fall back to v1 standalone
+        if docker compose version &> /dev/null; then
+            COMPOSE_CMD="docker compose"
+        else
+            COMPOSE_CMD="docker-compose"
+        fi
     fi
 fi
 
