@@ -21,18 +21,17 @@ buildNumber.properties
 .settings/
 .factorypath
 
-# Vaadin
-node_modules/
-package-lock.json
+# Frontend
+frontend/node_modules/
 webpack.generated.js
-tsconfig.json
-types.d.ts
-vite.config.ts
 vite.generated.ts
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Windows WSL
+*.Zone.Identifier
 
 # Logs
 *.log
