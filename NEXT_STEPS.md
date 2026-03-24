@@ -1,16 +1,43 @@
 # Next Steps
 
+## 1. TestScenario — prioriteit (architectuur)
+Refactor `TestSuite` zodat deze bestaat uit `TestScenario`'s, elk met hun eigen trigger en expectations.
+
+**Datamodel:**
+```
+TestSuite  (bevat gedeelde blocks/mocks)
+  └── TestScenario  (name, description)
+       ├── Trigger  (HTTP/AMQP/SFTP etc. — start van de integratie)
+       └── Expectations  (welke mocks, hoe vaak, in welke volgorde)
+```
+
+**Wijzigingen:**
+- Nieuwe entiteit `TestScenario` (vervangt de verwarrende bestaande `Scenario`/`ScenarioStep`/`ScenarioAction`)
+- `TestExpectation` krijgt FK naar `TestScenario` (was `TestSuite`)
+- `Trigger` krijgt FK naar `TestScenario` (was `TestSuite`)
+- `TestRun` wordt per scenario (was per suite)
+- Flyway migratie + frontend aanpassen
+
+**Voorbeeld use cases:**
+| Scenario | Trigger | Expectations |
+|---|---|---|
+| Happy path | POST /orders (geldige body) | payment 1x, inventory 1x, notification 1x |
+| Payment failure | zelfde body, payment-mock geeft 402 | payment 1x, inventory 0x, notification 0x |
+| Ongeldige data | body zonder totalAmount | geen mocks aangeroepen |
+
+---
+
 ## Cleanup
-- **Old UI verwijderen** — de originele vanilla JS/HTML/CSS UI in `src/main/resources/META-INF/resources/` (index.html, js/app.js, css/style.css) is vervangen door de React build. De oude bestanden kunnen weg.
-- **Ongebruikte domain-klassen** — er zijn scaffolding-klassen voor protocollen die nog niet geïmplementeerd zijn (NoSQL, AMQP, SFTP, Kafka, gRPC configs). Bekijken wat weg kan en wat bewust als toekomstige extensie bewaard blijft.
-- **Flyway migraties opruimen** — migraties voor tabellen zonder actieve domain-klassen (V7 SFTP, V8 AMQP, V9 SQL, V12 NoSQL, V13 Kafka, V14 gRPC/WebSocket). Beslissen: bewaren of droppen.
-- **ImportExportResource** — de oude endpoint-export/import endpoints (exportAll, exportSingle, importEndpoints, importSingleEndpoint) zijn vervangen door de suite import/export. Die kunnen weg.
+- **Oude Scenario-klassen verwijderen** — `Scenario`, `ScenarioStep`, `ScenarioAction`, `ScenarioResource`, `ScenarioService` (ander concept, vervangen door TestScenario)
+- **MetricsResource verwijderen** — `/api/metrics` niet meer gebruikt door frontend
+- **vite.svg verwijderen** — Vite template overblijfsel in resources
+- **Flyway migraties V7–V15** — SFTP, AMQP, SQL, NoSQL, Kafka, gRPC/WebSocket: geen actieve domain-klassen, beslissen of droppen
+- **Ongebruikte protocol-scaffolding** — domain-klassen voor niet-geïmplementeerde protocollen opruimen
 
 ## Demo
-- **Suite exporteren naar SCM** — na een succesvolle run de "Order Flow Suite" exporteren (↓ Export) en het JSON-bestand committen als `demo/order-service/order-flow-suite.json`. Het setup script kan dan vervangen worden door een import van dat bestand.
-- **CI/CD script** — een `ci-test.sh` script aanmaken dat de volledige flow uitvoert: start run → fire trigger → wacht → complete → JUnit XML ophalen → non-zero exit bij failure.
+- **Suite exporteren naar SCM** — "Order Flow Suite" exporteren en committen als `demo/order-service/order-flow-suite.json`; setup script vervangen door import
+- **CI/CD script** — `ci-test.sh`: start run → fire trigger → wacht → complete → JUnit XML → non-zero exit bij failure
 
 ## Features
-- **Dashboard uitbreiden** — nu alleen endpoints + log-stats. Toevoegen: actieve runs, recente trigger fires, suite pass/fail overzicht.
-- **HTTP headers in trigger-formulier** — het `httpHeaders` veld zit in het datamodel maar niet in de UI.
-- **Auto-complete run** — optionele instelling op een trigger om de run automatisch te completen na X seconden (voor volledig hands-off gebruik).
+- **Dashboard uitbreiden** — actieve runs, recente trigger fires, suite pass/fail overzicht
+- **HTTP headers in trigger-formulier** — `httpHeaders` zit in datamodel maar niet in UI
