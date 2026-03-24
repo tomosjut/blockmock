@@ -40,3 +40,4 @@ Thumbs.db
 *.swp
 *.swo
 *~
+demo/order-service/node_modules/
