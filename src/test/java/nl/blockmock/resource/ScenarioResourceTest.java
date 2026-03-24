@@ -25,23 +25,16 @@ class ScenarioResourceTest {
     @BeforeEach
     @Transactional
     void setUp() {
-        // Clean up any existing test data
         Scenario.deleteAll();
         MockEndpoint.deleteAll();
 
-        // Create test endpoint
         MockEndpoint endpoint = new MockEndpoint();
         endpoint.setName("Test Endpoint");
         endpoint.setProtocol(ProtocolType.HTTP);
         endpoint.setPattern(PatternType.REQUEST_REPLY);
         endpoint.setEnabled(true);
-
-        HttpConfig httpConfig = new HttpConfig();
-        httpConfig.setMethod(HttpMethod.GET);
-        httpConfig.setPath("/test");
-        httpConfig.setMockEndpoint(endpoint);
-        endpoint.setHttpConfig(httpConfig);
-
+        endpoint.setHttpMethod(HttpMethod.GET);
+        endpoint.setHttpPath("/test");
         endpoint.persist();
         testEndpointId = endpoint.id;
     }
@@ -93,7 +86,6 @@ class ScenarioResourceTest {
 
     @Test
     void testGetAllScenarios() {
-        // Create test scenarios
         createTestScenario("Scenario 1");
         createTestScenario("Scenario 2");
 
@@ -154,7 +146,6 @@ class ScenarioResourceTest {
         .then()
             .statusCode(204);
 
-        // Verify deletion
         given()
             .pathParam("id", id)
         .when()
@@ -193,7 +184,6 @@ class ScenarioResourceTest {
         scenario.setColor("#667eea");
 
         List<ScenarioStep> steps = new ArrayList<>();
-
         ScenarioStep step = new ScenarioStep();
         step.setStepOrder(0);
         step.setAction(ScenarioAction.DELAY);

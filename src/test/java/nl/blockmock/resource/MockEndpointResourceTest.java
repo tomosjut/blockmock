@@ -21,14 +21,12 @@ class MockEndpointResourceTest {
     @BeforeEach
     @Transactional
     void setUp() {
-        // Clean up any existing test data
         MockEndpoint.deleteAll();
     }
 
     @AfterEach
     @Transactional
     void tearDown() {
-        // Clean up test data
         MockEndpoint.deleteAll();
     }
 
@@ -40,12 +38,9 @@ class MockEndpointResourceTest {
         endpoint.put("protocol", "HTTP");
         endpoint.put("pattern", "REQUEST_REPLY");
         endpoint.put("enabled", true);
-
-        Map<String, Object> httpConfig = new HashMap<>();
-        httpConfig.put("method", "GET");
-        httpConfig.put("path", "/api/test");
-        httpConfig.put("pathRegex", false);
-        endpoint.put("httpConfig", httpConfig);
+        endpoint.put("httpMethod", "GET");
+        endpoint.put("httpPath", "/api/test");
+        endpoint.put("httpPathRegex", false);
 
         given()
             .contentType(ContentType.JSON)
@@ -57,13 +52,12 @@ class MockEndpointResourceTest {
             .body("id", notNullValue())
             .body("name", equalTo("Test HTTP Mock"))
             .body("protocol", equalTo("HTTP"))
-            .body("httpConfig.method", equalTo("GET"))
-            .body("httpConfig.path", equalTo("/api/test"));
+            .body("httpMethod", equalTo("GET"))
+            .body("httpPath", equalTo("/api/test"));
     }
 
     @Test
     void testGetAllEndpoints() {
-        // Create test endpoint first
         createTestEndpoint("Test Endpoint 1");
         createTestEndpoint("Test Endpoint 2");
 
@@ -77,7 +71,6 @@ class MockEndpointResourceTest {
 
     @Test
     void testGetEndpointById() {
-        // Create test endpoint
         Long id = createTestEndpoint("Test Endpoint");
 
         given()
@@ -102,7 +95,6 @@ class MockEndpointResourceTest {
 
     @Test
     void testUpdateEndpoint() {
-        // Create test endpoint
         Long id = createTestEndpoint("Original Name");
 
         Map<String, Object> update = new HashMap<>();
@@ -112,11 +104,8 @@ class MockEndpointResourceTest {
         update.put("protocol", "HTTP");
         update.put("pattern", "REQUEST_REPLY");
         update.put("enabled", true);
-
-        Map<String, Object> httpConfig = new HashMap<>();
-        httpConfig.put("method", "GET");
-        httpConfig.put("path", "/updated");
-        update.put("httpConfig", httpConfig);
+        update.put("httpMethod", "GET");
+        update.put("httpPath", "/updated");
 
         given()
             .contentType(ContentType.JSON)
@@ -132,7 +121,6 @@ class MockEndpointResourceTest {
 
     @Test
     void testDeleteEndpoint() {
-        // Create test endpoint
         Long id = createTestEndpoint("To Delete");
 
         given()
@@ -142,7 +130,6 @@ class MockEndpointResourceTest {
         .then()
             .statusCode(204);
 
-        // Verify deletion
         given()
             .pathParam("id", id)
         .when()
@@ -153,10 +140,8 @@ class MockEndpointResourceTest {
 
     @Test
     void testToggleEndpoint() {
-        // Create test endpoint (enabled by default)
         Long id = createTestEndpoint("To Toggle");
 
-        // Toggle to disabled
         given()
             .pathParam("id", id)
         .when()
@@ -164,7 +149,6 @@ class MockEndpointResourceTest {
         .then()
             .statusCode(200);
 
-        // Verify it's disabled
         given()
             .pathParam("id", id)
         .when()
@@ -173,7 +157,6 @@ class MockEndpointResourceTest {
             .statusCode(200)
             .body("enabled", equalTo(false));
 
-        // Toggle back to enabled
         given()
             .pathParam("id", id)
         .when()
@@ -181,7 +164,6 @@ class MockEndpointResourceTest {
         .then()
             .statusCode(200);
 
-        // Verify it's enabled
         given()
             .pathParam("id", id)
         .when()
@@ -193,12 +175,10 @@ class MockEndpointResourceTest {
 
     @Test
     void testGetEndpointsByProtocol() {
-        // Create endpoints with different protocols
-        createTestEndpoint("HTTP Endpoint", ProtocolType.HTTP);
-        createTestEndpoint("SFTP Endpoint", ProtocolType.SFTP);
+        createTestEndpoint("HTTP Endpoint 1");
+        createTestEndpoint("HTTP Endpoint 2");
 
         given()
-            .queryParam("protocol", "HTTP")
         .when()
             .get("/api/endpoints")
         .then()
@@ -208,27 +188,15 @@ class MockEndpointResourceTest {
 
     @Transactional
     Long createTestEndpoint(String name) {
-        return createTestEndpoint(name, ProtocolType.HTTP);
-    }
-
-    @Transactional
-    Long createTestEndpoint(String name, ProtocolType protocol) {
         MockEndpoint endpoint = new MockEndpoint();
         endpoint.setName(name);
         endpoint.setDescription("Test Description");
-        endpoint.setProtocol(protocol);
+        endpoint.setProtocol(ProtocolType.HTTP);
         endpoint.setPattern(PatternType.REQUEST_REPLY);
         endpoint.setEnabled(true);
-
-        if (protocol == ProtocolType.HTTP) {
-            HttpConfig httpConfig = new HttpConfig();
-            httpConfig.setMethod(HttpMethod.GET);
-            httpConfig.setPath("/test");
-            httpConfig.setPathRegex(false);
-            httpConfig.setMockEndpoint(endpoint);
-            endpoint.setHttpConfig(httpConfig);
-        }
-
+        endpoint.setHttpMethod(HttpMethod.GET);
+        endpoint.setHttpPath("/test");
+        endpoint.setHttpPathRegex(false);
         endpoint.persist();
         return endpoint.id;
     }

@@ -1,6 +1,7 @@
 package nl.blockmock.domain;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
@@ -25,6 +26,8 @@ public class TestExpectation extends PanacheEntity {
     @Column(nullable = false)
     private String name;
 
+    @JsonIgnoreProperties({"responses", "totalRequests", "matchedRequests", "unmatchedRequests",
+            "lastRequestAt", "averageResponseTimeMs", "createdAt", "updatedAt"})
     @ManyToOne
     @JoinColumn(name = "mock_endpoint_id")
     private MockEndpoint mockEndpoint;

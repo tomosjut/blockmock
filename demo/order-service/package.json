@@ -1,0 +1,12 @@
+{
+  "name": "blockmock-demo-order-service",
+  "version": "1.0.0",
+  "description": "Demo integration app for testing BlockMock — simulates an order service that calls external services",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

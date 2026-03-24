@@ -1,0 +1,107 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background: #1e1e2e;
+  border-bottom: 1px solid #313244;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 0.5rem 1.5rem;
+}
+
+.app-logo {
+  font-weight: 700;
+  font-size: 1.2rem;
+  color: #cba6f7;
+  white-space: nowrap;
+}
+
+.tab-nav {
+  display: flex;
+  gap: 0;
+}
+
+.tab {
+  display: inline-block;
+  padding: 1rem 1.2rem;
+  color: #a6adc8;
+  text-decoration: none;
+  font-size: 0.9rem;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab:hover {
+  color: #cdd6f4;
+}
+
+.tab.active {
+  color: #cba6f7;
+  border-bottom-color: #cba6f7;
+}
+
+.app-content {
+  flex: 1;
+  padding: 2rem;
+}
+
+.page h1 {
+  margin-top: 0;
+  font-size: 1.5rem;
+  color: #cdd6f4;
+}
+
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.stat-card {
+  background: #1e1e2e;
+  border: 1px solid #313244;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #cba6f7;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: #a6adc8;
+  margin-top: 0.25rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: #1e1e2e;
+  color: #a6adc8;
+  border-bottom: 1px solid #313244;
+}
+
+.data-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #181825;
+  color: #cdd6f4;
+}
+
+.data-table tr:hover td {
+  background: #1e1e2e;
+}

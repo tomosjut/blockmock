@@ -304,6 +304,16 @@ public class TestSuiteService {
     }
 
     @Transactional
+    public int clearCompletedRuns(Long suiteId) {
+        List<TestRun> completed = TestRun.list(
+                "testSuite.id = ?1 and status in ?2", suiteId,
+                List.of(TestRunStatus.COMPLETED, TestRunStatus.FAILED, TestRunStatus.CANCELLED));
+        int count = completed.size();
+        completed.forEach(r -> r.delete());
+        return count;
+    }
+
+    @Transactional
     public void cancelRun(Long suiteId, Long runId) {
         TestRun run = TestRun.findById(runId);
         if (run == null || !run.getTestSuite().id.equals(suiteId)) {

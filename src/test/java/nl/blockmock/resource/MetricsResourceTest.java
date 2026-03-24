@@ -21,26 +21,20 @@ class MetricsResourceTest {
     @BeforeEach
     @Transactional
     void setUp() {
-        // Clean up any existing test data
         MockEndpoint.deleteAll();
 
-        // Create test endpoint with metrics
         MockEndpoint endpoint = new MockEndpoint();
         endpoint.setName("Test Endpoint");
         endpoint.setProtocol(ProtocolType.HTTP);
         endpoint.setPattern(PatternType.REQUEST_REPLY);
         endpoint.setEnabled(true);
+        endpoint.setHttpMethod(HttpMethod.GET);
+        endpoint.setHttpPath("/test");
         endpoint.setTotalRequests(100L);
         endpoint.setMatchedRequests(80L);
         endpoint.setUnmatchedRequests(20L);
         endpoint.setLastRequestAt(LocalDateTime.now());
         endpoint.setAverageResponseTimeMs(150);
-
-        HttpConfig httpConfig = new HttpConfig();
-        httpConfig.setMethod(HttpMethod.GET);
-        httpConfig.setPath("/test");
-        httpConfig.setMockEndpoint(endpoint);
-        endpoint.setHttpConfig(httpConfig);
 
         endpoint.persist();
         testEndpointId = endpoint.id;
@@ -101,7 +95,6 @@ class MetricsResourceTest {
 
     @Test
     void testResetEndpointMetrics() {
-        // Reset metrics
         given()
             .pathParam("id", testEndpointId)
         .when()
@@ -109,7 +102,6 @@ class MetricsResourceTest {
         .then()
             .statusCode(200);
 
-        // Verify metrics are reset
         given()
             .pathParam("id", testEndpointId)
         .when()
@@ -125,17 +117,14 @@ class MetricsResourceTest {
 
     @Test
     void testResetAllMetrics() {
-        // Create another endpoint with metrics
         Long secondEndpointId = createTestEndpoint("Second Endpoint", 50L, 40L, 10L);
 
-        // Reset all metrics
         given()
         .when()
             .post("/api/metrics/reset-all")
         .then()
             .statusCode(200);
 
-        // Verify first endpoint metrics are reset
         given()
             .pathParam("id", testEndpointId)
         .when()
@@ -145,7 +134,6 @@ class MetricsResourceTest {
             .body("totalRequests", equalTo(0))
             .body("matchedRequests", equalTo(0));
 
-        // Verify second endpoint metrics are reset
         given()
             .pathParam("id", secondEndpointId)
         .when()
@@ -155,18 +143,15 @@ class MetricsResourceTest {
             .body("totalRequests", equalTo(0))
             .body("matchedRequests", equalTo(0));
 
-        // Cleanup
         deleteEndpoint(secondEndpointId);
     }
 
     @Test
     void testSuccessRateCalculation() {
-        // Create endpoint with different success rates
         Long perfectEndpointId = createTestEndpoint("Perfect Endpoint", 100L, 100L, 0L);
         Long halfEndpointId = createTestEndpoint("Half Endpoint", 100L, 50L, 50L);
         Long zeroEndpointId = createTestEndpoint("Zero Requests", 0L, 0L, 0L);
 
-        // Test perfect success rate
         given()
             .pathParam("id", perfectEndpointId)
         .when()
@@ -175,7 +160,6 @@ class MetricsResourceTest {
             .statusCode(200)
             .body("successRate", equalTo("100.0%"));
 
-        // Test 50% success rate
         given()
             .pathParam("id", halfEndpointId)
         .when()
@@ -184,7 +168,6 @@ class MetricsResourceTest {
             .statusCode(200)
             .body("successRate", equalTo("50.0%"));
 
-        // Test N/A for zero requests
         given()
             .pathParam("id", zeroEndpointId)
         .when()
@@ -193,7 +176,6 @@ class MetricsResourceTest {
             .statusCode(200)
             .body("successRate", equalTo("N/A"));
 
-        // Cleanup
         deleteEndpoint(perfectEndpointId);
         deleteEndpoint(halfEndpointId);
         deleteEndpoint(zeroEndpointId);
@@ -206,16 +188,11 @@ class MetricsResourceTest {
         endpoint.setProtocol(ProtocolType.HTTP);
         endpoint.setPattern(PatternType.REQUEST_REPLY);
         endpoint.setEnabled(true);
+        endpoint.setHttpMethod(HttpMethod.GET);
+        endpoint.setHttpPath("/test");
         endpoint.setTotalRequests(total);
         endpoint.setMatchedRequests(matched);
         endpoint.setUnmatchedRequests(unmatched);
-
-        HttpConfig httpConfig = new HttpConfig();
-        httpConfig.setMethod(HttpMethod.GET);
-        httpConfig.setPath("/test");
-        httpConfig.setMockEndpoint(endpoint);
-        endpoint.setHttpConfig(httpConfig);
-
         endpoint.persist();
         return endpoint.id;
     }

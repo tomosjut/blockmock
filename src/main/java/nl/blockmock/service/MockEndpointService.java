@@ -12,100 +12,22 @@ public class MockEndpointService {
 
     @Transactional
     public MockEndpoint create(MockEndpoint endpoint) {
-        // Fix bidirectional relationships before persisting
-        if (endpoint.getHttpConfig() != null) {
-            endpoint.getHttpConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getSftpConfig() != null) {
-            endpoint.getSftpConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getAmqpConfig() != null) {
-            endpoint.getAmqpConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getSqlConfig() != null) {
-            endpoint.getSqlConfig().setMockEndpoint(endpoint);
-            if (endpoint.getSqlConfig().getQueryMocks() != null) {
-                for (var queryMock : endpoint.getSqlConfig().getQueryMocks()) {
-                    queryMock.setSqlConfig(endpoint.getSqlConfig());
-                }
-            }
-        }
-
-        if (endpoint.getNoSqlConfig() != null) {
-            endpoint.getNoSqlConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getKafkaConfig() != null) {
-            endpoint.getKafkaConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getGrpcConfig() != null) {
-            endpoint.getGrpcConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getWebSocketConfig() != null) {
-            endpoint.getWebSocketConfig().setMockEndpoint(endpoint);
-        }
-
         if (endpoint.getResponses() != null) {
             for (MockResponse response : endpoint.getResponses()) {
                 response.setMockEndpoint(endpoint);
             }
         }
-
         endpoint.persist();
         return endpoint;
     }
 
     @Transactional
     public MockEndpoint update(MockEndpoint endpoint) {
-        // Fix bidirectional relationships before merging
-        if (endpoint.getHttpConfig() != null) {
-            endpoint.getHttpConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getSftpConfig() != null) {
-            endpoint.getSftpConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getAmqpConfig() != null) {
-            endpoint.getAmqpConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getSqlConfig() != null) {
-            endpoint.getSqlConfig().setMockEndpoint(endpoint);
-            if (endpoint.getSqlConfig().getQueryMocks() != null) {
-                for (var queryMock : endpoint.getSqlConfig().getQueryMocks()) {
-                    queryMock.setSqlConfig(endpoint.getSqlConfig());
-                }
-            }
-        }
-
-        if (endpoint.getNoSqlConfig() != null) {
-            endpoint.getNoSqlConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getKafkaConfig() != null) {
-            endpoint.getKafkaConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getGrpcConfig() != null) {
-            endpoint.getGrpcConfig().setMockEndpoint(endpoint);
-        }
-
-        if (endpoint.getWebSocketConfig() != null) {
-            endpoint.getWebSocketConfig().setMockEndpoint(endpoint);
-        }
-
         if (endpoint.getResponses() != null) {
             for (MockResponse response : endpoint.getResponses()) {
                 response.setMockEndpoint(endpoint);
             }
         }
-
         return MockEndpoint.getEntityManager().merge(endpoint);
     }
 

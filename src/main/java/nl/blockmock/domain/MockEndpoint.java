@@ -33,6 +33,17 @@ public class MockEndpoint extends PanacheEntity {
     @Column(nullable = false)
     private Boolean enabled = true;
 
+    // HTTP-specific config (http_ prefix signals protocol ownership)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "http_method", length = 50)
+    private HttpMethod httpMethod;
+
+    @Column(name = "http_path", length = 1000)
+    private String httpPath;
+
+    @Column(name = "http_path_regex")
+    private Boolean httpPathRegex = false;
+
     // Metrics/Statistics
     @Column(name = "total_requests")
     private Long totalRequests = 0L;
@@ -48,38 +59,6 @@ public class MockEndpoint extends PanacheEntity {
 
     @Column(name = "average_response_time_ms")
     private Integer averageResponseTimeMs = 0;
-
-    @JsonManagedReference("endpoint-httpconfig")
-    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
-    private HttpConfig httpConfig;
-
-    @JsonManagedReference("endpoint-sftpconfig")
-    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
-    private SftpConfig sftpConfig;
-
-    @JsonManagedReference("endpoint-amqpconfig")
-    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
-    private AmqpConfig amqpConfig;
-
-    @JsonManagedReference("endpoint-sqlconfig")
-    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
-    private SqlConfig sqlConfig;
-
-    @JsonManagedReference("endpoint-nosqlconfig")
-    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
-    private NoSqlConfig noSqlConfig;
-
-    @JsonManagedReference("endpoint-kafkaconfig")
-    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
-    private KafkaConfig kafkaConfig;
-
-    @JsonManagedReference("endpoint-grpcconfig")
-    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
-    private GrpcConfig grpcConfig;
-
-    @JsonManagedReference("endpoint-websocketconfig")
-    @OneToOne(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)
-    private WebSocketConfig webSocketConfig;
 
     @JsonManagedReference("endpoint-responses")
     @OneToMany(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)

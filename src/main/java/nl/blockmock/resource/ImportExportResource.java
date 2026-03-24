@@ -1,19 +1,13 @@
 package nl.blockmock.resource;
 
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import nl.blockmock.domain.MockEndpoint;
-import nl.blockmock.service.MockEndpointService;
+import nl.blockmock.service.TestSuiteExportService;
+import nl.blockmock.service.TestSuiteExportService.TestSuiteExport;
+import nl.blockmock.service.TestSuiteExportService.ImportResult;
 import org.jboss.logging.Logger;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 @Path("/api/import-export")
 @Produces(MediaType.APPLICATION_JSON)
@@ -23,129 +17,34 @@ public class ImportExportResource {
     private static final Logger LOG = Logger.getLogger(ImportExportResource.class);
 
     @Inject
-    MockEndpointService mockEndpointService;
+    TestSuiteExportService exportService;
 
     @GET
-    @Path("/export")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response exportAll() {
+    @Path("/suites/{id}")
+    public Response exportSuite(@PathParam("id") Long id) {
         try {
-            List<MockEndpoint> endpoints = mockEndpointService.findAll();
-            return Response.ok(endpoints)
-                    .header("Content-Disposition", "attachment; filename=\"blockmock-export.json\"")
+            TestSuiteExport export = exportService.export(id);
+            String filename = "suite-" + export.testSuite().name().replaceAll("[^a-zA-Z0-9_-]", "_") + ".json";
+            return Response.ok(export)
+                    .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
                     .build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.NOT_FOUND).entity(e.getMessage()).build();
         } catch (Exception e) {
-            LOG.error("Error exporting endpoints", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Error exporting endpoints: " + e.getMessage())
-                    .build();
-        }
-    }
-
-    @GET
-    @Path("/export/{id}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response exportSingle(@PathParam("id") Long id) {
-        try {
-            MockEndpoint endpoint = mockEndpointService.findById(id)
-                    .orElse(null);
-            if (endpoint == null) {
-                return Response.status(Response.Status.NOT_FOUND).build();
-            }
-
-            return Response.ok(endpoint)
-                    .header("Content-Disposition", "attachment; filename=\"endpoint-" + id + ".json\"")
-                    .build();
-        } catch (Exception e) {
-            LOG.error("Error exporting endpoint", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Error exporting endpoint: " + e.getMessage())
-                    .build();
+            LOG.error("Error exporting suite", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
         }
     }
 
     @POST
-    @Path("/import")
-    @Transactional
-    @Consumes(MediaType.APPLICATION_JSON)
-    public Response importEndpoints(List<MockEndpoint> endpoints) {
+    @Path("/suites")
+    public Response importSuite(TestSuiteExport export) {
         try {
-            int imported = 0;
-            for (MockEndpoint endpoint : endpoints) {
-                // Remove ID to create new endpoints
-                endpoint.id = null;
-
-                // Clear IDs from nested entities
-                if (endpoint.getHttpConfig() != null) {
-                    endpoint.getHttpConfig().id = null;
-                }
-                if (endpoint.getSftpConfig() != null) {
-                    endpoint.getSftpConfig().id = null;
-                }
-                if (endpoint.getAmqpConfig() != null) {
-                    endpoint.getAmqpConfig().id = null;
-                }
-                if (endpoint.getSqlConfig() != null) {
-                    endpoint.getSqlConfig().id = null;
-                    if (endpoint.getSqlConfig().getQueryMocks() != null) {
-                        endpoint.getSqlConfig().getQueryMocks().forEach(qm -> qm.id = null);
-                    }
-                }
-                if (endpoint.getResponses() != null) {
-                    endpoint.getResponses().forEach(r -> r.id = null);
-                }
-
-                mockEndpointService.create(endpoint);
-                imported++;
-            }
-
-            LOG.info("Successfully imported " + imported + " endpoints");
-            return Response.ok("{\"imported\": " + imported + "}").build();
+            ImportResult result = exportService.importSuite(export);
+            return Response.ok(result).build();
         } catch (Exception e) {
-            LOG.error("Error importing endpoints", e);
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Error importing endpoints: " + e.getMessage())
-                    .build();
-        }
-    }
-
-    @POST
-    @Path("/import-single")
-    @Transactional
-    @Consumes(MediaType.APPLICATION_JSON)
-    public Response importSingleEndpoint(MockEndpoint endpoint) {
-        try {
-            // Remove ID to create new endpoint
-            endpoint.id = null;
-
-            // Clear IDs from nested entities
-            if (endpoint.getHttpConfig() != null) {
-                endpoint.getHttpConfig().id = null;
-            }
-            if (endpoint.getSftpConfig() != null) {
-                endpoint.getSftpConfig().id = null;
-            }
-            if (endpoint.getAmqpConfig() != null) {
-                endpoint.getAmqpConfig().id = null;
-            }
-            if (endpoint.getSqlConfig() != null) {
-                endpoint.getSqlConfig().id = null;
-                if (endpoint.getSqlConfig().getQueryMocks() != null) {
-                    endpoint.getSqlConfig().getQueryMocks().forEach(qm -> qm.id = null);
-                }
-            }
-            if (endpoint.getResponses() != null) {
-                endpoint.getResponses().forEach(r -> r.id = null);
-            }
-
-            MockEndpoint created = mockEndpointService.create(endpoint);
-            LOG.info("Successfully imported endpoint: " + created.getName());
-            return Response.ok(created).build();
-        } catch (Exception e) {
-            LOG.error("Error importing endpoint", e);
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Error importing endpoint: " + e.getMessage())
-                    .build();
+            LOG.error("Error importing suite", e);
+            return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
         }
     }
 }

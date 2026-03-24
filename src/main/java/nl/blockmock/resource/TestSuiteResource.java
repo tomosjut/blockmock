@@ -118,6 +118,13 @@ public class TestSuiteResource {
     }
 
     @DELETE
+    @Path("/{id}/runs")
+    public Response clearCompletedRuns(@PathParam("id") Long id) {
+        int count = testSuiteService.clearCompletedRuns(id);
+        return Response.ok("{\"deleted\": " + count + "}").build();
+    }
+
+    @DELETE
     @Path("/{id}/runs/{runId}")
     public Response cancelRun(@PathParam("id") Long id, @PathParam("runId") Long runId) {
         try {

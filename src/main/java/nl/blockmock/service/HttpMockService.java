@@ -2,8 +2,13 @@ package nl.blockmock.service;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import nl.blockmock.domain.*;
+import jakarta.transaction.Transactional;
+import nl.blockmock.domain.MockEndpoint;
+import nl.blockmock.domain.MockResponse;
+import nl.blockmock.domain.ProtocolType;
+import nl.blockmock.domain.RequestLog;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +24,7 @@ public class HttpMockService {
     @Inject
     RequestLogService requestLogService;
 
+    @Transactional
     public HttpMockResponse handleRequest(String method, String path,
                                          Map<String, String> headers,
                                          Map<String, String> queryParams,
@@ -54,6 +60,7 @@ public class HttpMockService {
             log.setResponseDelayMs(matchedResponse.getResponseDelayMs());
 
             requestLogService.log(log);
+            updateMetrics(matchedEndpoint, true);
 
             return new HttpMockResponse(
                 matchedResponse.getResponseStatusCode() != null ? matchedResponse.getResponseStatusCode() : 200,
@@ -69,28 +76,28 @@ public class HttpMockService {
         log.setResponseBody("No mock found for: " + method + " " + path);
 
         requestLogService.log(log);
+        // No endpoint matched — nothing to update metrics on
 
         return new HttpMockResponse(404, new HashMap<>(),
                                    "No mock found for: " + method + " " + path, 0);
     }
 
     private boolean matchesEndpoint(MockEndpoint endpoint, String method, String path) {
-        HttpConfig config = endpoint.getHttpConfig();
-        if (config == null) {
+        if (endpoint.getHttpMethod() == null || endpoint.getHttpPath() == null) {
             return false;
         }
 
         // Check HTTP method
-        if (!config.getMethod().name().equalsIgnoreCase(method)) {
+        if (!endpoint.getHttpMethod().name().equalsIgnoreCase(method)) {
             return false;
         }
 
         // Check path
-        if (config.getPathRegex()) {
-            Pattern pattern = Pattern.compile(config.getPath());
+        if (Boolean.TRUE.equals(endpoint.getHttpPathRegex())) {
+            Pattern pattern = Pattern.compile(endpoint.getHttpPath());
             return pattern.matcher(path).matches();
         } else {
-            return config.getPath().equals(path);
+            return endpoint.getHttpPath().equals(path);
         }
     }
 
@@ -165,9 +172,20 @@ public class HttpMockService {
             }
         }
 
-        // TODO: Implement script matching
-
         return true;
+    }
+
+    private void updateMetrics(MockEndpoint endpoint, boolean matched) {
+        if (endpoint == null) return;
+        MockEndpoint managed = MockEndpoint.findById(endpoint.id);
+        if (managed == null) return;
+        managed.setTotalRequests(managed.getTotalRequests() + 1);
+        if (matched) {
+            managed.setMatchedRequests(managed.getMatchedRequests() + 1);
+        } else {
+            managed.setUnmatchedRequests(managed.getUnmatchedRequests() + 1);
+        }
+        managed.setLastRequestAt(LocalDateTime.now());
     }
 
     private RequestLog createRequestLog(MockEndpoint endpoint, MockResponse response,
