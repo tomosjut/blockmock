@@ -1,5 +1,6 @@
 package nl.blockmock.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
@@ -59,6 +60,11 @@ public class MockEndpoint extends PanacheEntity {
 
     @Column(name = "average_response_time_ms")
     private Integer averageResponseTimeMs = 0;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "forced_response_id")
+    private MockResponse forcedResponse;
 
     @JsonManagedReference("endpoint-responses")
     @OneToMany(mappedBy = "mockEndpoint", cascade = CascadeType.ALL, orphanRemoval = true)

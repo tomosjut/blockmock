@@ -18,10 +18,10 @@ import java.util.Map;
 @Setter
 public class TestExpectation extends PanacheEntity {
 
-    @JsonBackReference
+    @JsonBackReference("scenario-expectations")
     @ManyToOne
-    @JoinColumn(name = "test_suite_id", nullable = false)
-    private TestSuite testSuite;
+    @JoinColumn(name = "test_scenario_id", nullable = false)
+    private TestScenario testScenario;
 
     @Column(nullable = false)
     private String name;

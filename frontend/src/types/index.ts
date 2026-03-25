@@ -74,30 +74,29 @@ export interface TestRun {
   results?: TestExpectationResult[]
 }
 
+export interface ScenarioResponseOverride {
+  id?: number
+  mockEndpoint?: { id: number; name?: string; httpMethod?: string; httpPath?: string }
+  mockResponse?: { id: number; name?: string; responseStatusCode?: number }
+}
+
+export interface TestScenario {
+  id?: number
+  name: string
+  description?: string
+  expectations?: TestExpectation[]
+  responseOverrides?: ScenarioResponseOverride[]
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface TestSuite {
   id?: number
   name: string
   description?: string
   color?: string
   blocks?: { id: number; name?: string }[]
-  expectations?: TestExpectation[]
-  createdAt?: string
-  updatedAt?: string
-}
-
-export interface ScenarioStep {
-  id?: number
-  stepOrder: number
-  endpointId: number
-  responseId?: number
-}
-
-export interface Scenario {
-  id?: number
-  name: string
-  description?: string
-  active?: boolean
-  steps?: ScenarioStep[]
+  scenarios?: TestScenario[]
   createdAt?: string
   updatedAt?: string
 }
@@ -109,7 +108,7 @@ export interface TriggerConfig {
   name: string
   description?: string
   type: TriggerType
-  testSuite?: { id: number; name?: string }
+  testScenario?: { id: number; name?: string }
   httpUrl?: string
   httpMethod?: string
   httpBody?: string

@@ -1,5 +1,5 @@
 import { apiFetch, postJson, putJson, deleteReq } from './client'
-import type { TestSuite, TestRun } from '../types'
+import type { TestSuite, TestScenario, TestRun } from '../types'
 
 const BASE = '/api/test-suites'
 const IE_BASE = '/api/import-export'
@@ -10,13 +10,24 @@ export const createTestSuite = (ts: Partial<TestSuite>): Promise<TestSuite> => p
 export const updateTestSuite = (id: number, ts: Partial<TestSuite>): Promise<TestSuite> => putJson(`${BASE}/${id}`, ts)
 export const deleteTestSuite = (id: number): Promise<void> => deleteReq(`${BASE}/${id}`)
 
-export const startRun = (id: number): Promise<TestRun> => apiFetch(`${BASE}/${id}/runs`, { method: 'POST' })
-export const getRuns = (id: number): Promise<TestRun[]> => apiFetch(`${BASE}/${id}/runs`)
-export const completeRun = (id: number, runId: number): Promise<TestRun> => apiFetch(`${BASE}/${id}/runs/${runId}/complete`, { method: 'POST' })
-export const cancelRun = (id: number, runId: number): Promise<void> => deleteReq(`${BASE}/${id}/runs/${runId}`)
-export const clearRuns = (id: number): Promise<void> => deleteReq(`${BASE}/${id}/runs`)
-export async function getJUnitXml(id: number, runId: number): Promise<string> {
-  const response = await fetch(`${BASE}/${id}/runs/${runId}/junit`)
+export const getScenarios = (suiteId: number): Promise<TestScenario[]> => apiFetch(`${BASE}/${suiteId}/scenarios`)
+export const createScenario = (suiteId: number, s: Partial<TestScenario>): Promise<TestScenario> => postJson(`${BASE}/${suiteId}/scenarios`, s)
+export const updateScenario = (suiteId: number, scenarioId: number, s: Partial<TestScenario>): Promise<TestScenario> => putJson(`${BASE}/${suiteId}/scenarios/${scenarioId}`, s)
+export const deleteScenario = (suiteId: number, scenarioId: number): Promise<void> => deleteReq(`${BASE}/${suiteId}/scenarios/${scenarioId}`)
+
+export const startRun = (suiteId: number, scenarioId: number): Promise<TestRun> =>
+  apiFetch(`${BASE}/${suiteId}/scenarios/${scenarioId}/runs`, { method: 'POST' })
+export const getRuns = (suiteId: number, scenarioId: number): Promise<TestRun[]> =>
+  apiFetch(`${BASE}/${suiteId}/scenarios/${scenarioId}/runs`)
+export const completeRun = (suiteId: number, scenarioId: number, runId: number): Promise<TestRun> =>
+  apiFetch(`${BASE}/${suiteId}/scenarios/${scenarioId}/runs/${runId}/complete`, { method: 'POST' })
+export const cancelRun = (suiteId: number, scenarioId: number, runId: number): Promise<void> =>
+  deleteReq(`${BASE}/${suiteId}/scenarios/${scenarioId}/runs/${runId}`)
+export const clearRuns = (suiteId: number, scenarioId: number): Promise<void> =>
+  deleteReq(`${BASE}/${suiteId}/scenarios/${scenarioId}/runs`)
+
+export async function getJUnitXml(suiteId: number, scenarioId: number, runId: number): Promise<string> {
+  const response = await fetch(`${BASE}/${suiteId}/scenarios/${scenarioId}/runs/${runId}/junit`)
   if (!response.ok) throw new Error(`API ${response.status}: ${response.statusText}`)
   return response.text()
 }

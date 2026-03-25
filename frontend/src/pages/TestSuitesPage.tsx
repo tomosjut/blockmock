@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
-import type { TestSuite, TestExpectation, TestRun, TestExpectationResult, MockEndpoint, Block, TriggerConfig } from '../types'
+import type { TestSuite, TestScenario, TestExpectation, ScenarioResponseOverride, TestRun, TestExpectationResult, MockEndpoint, Block, TriggerConfig } from '../types'
 import {
   getTestSuites, createTestSuite, updateTestSuite, deleteTestSuite,
+  getScenarios, createScenario, updateScenario, deleteScenario,
   startRun, getRuns, completeRun, cancelRun, getJUnitXml,
   exportSuite, importSuite, clearRuns,
 } from '../api/testsuites'
@@ -21,16 +22,28 @@ const emptyExpectation = (): TestExpectation => ({
   expectationOrder: undefined,
 })
 
-const emptyForm = (): Partial<TestSuite> => ({
+const emptySuiteForm = (): Partial<TestSuite> => ({
   name: '',
   description: '',
   color: '#667eea',
   blocks: [],
+})
+
+const emptyScenarioForm = (): Partial<TestScenario> => ({
+  name: '',
+  description: '',
   expectations: [],
+  responseOverrides: [],
+})
+
+const emptyOverride = (): ScenarioResponseOverride => ({
+  mockEndpoint: undefined,
+  mockResponse: undefined,
 })
 
 export default function TestSuitesPage() {
   const [suites, setSuites] = useState<TestSuite[]>([])
+  const [scenarios, setScenarios] = useState<Record<number, TestScenario[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,17 +53,25 @@ export default function TestSuitesPage() {
   // Suite modal
   const [showSuiteModal, setShowSuiteModal] = useState(false)
   const [editingSuite, setEditingSuite] = useState<TestSuite | null>(null)
-  const [form, setForm] = useState<Partial<TestSuite>>(emptyForm())
-  const [saving, setSaving] = useState(false)
+  const [suiteForm, setSuiteForm] = useState<Partial<TestSuite>>(emptySuiteForm())
+  const [savingSuite, setSavingSuite] = useState(false)
+
+  // Scenario modal
+  const [showScenarioModal, setShowScenarioModal] = useState(false)
+  const [editingScenario, setEditingScenario] = useState<TestScenario | null>(null)
+  const [scenarioSuiteId, setScenarioSuiteId] = useState<number | null>(null)
+  const [scenarioForm, setScenarioForm] = useState<Partial<TestScenario>>(emptyScenarioForm())
+  const [savingScenario, setSavingScenario] = useState(false)
 
   // Runs modal
   const [showRunsModal, setShowRunsModal] = useState(false)
   const [selectedSuite, setSelectedSuite] = useState<TestSuite | null>(null)
+  const [selectedScenario, setSelectedScenario] = useState<TestScenario | null>(null)
   const [runs, setRuns] = useState<TestRun[]>([])
   const [loadingRuns, setLoadingRuns] = useState(false)
 
   // Triggers for runs modal
-  const [suiteTriggers, setSuiteTriggers] = useState<TriggerConfig[]>([])
+  const [scenarioTriggers, setScenarioTriggers] = useState<TriggerConfig[]>([])
   const [firingTrigger, setFiringTrigger] = useState<number | null>(null)
 
   // Import/export
@@ -66,6 +87,14 @@ export default function TestSuitesPage() {
       setSuites(s)
       setAllEndpoints(eps)
       setAllBlocks(blocks)
+      // Load scenarios for each suite
+      const scenarioMap: Record<number, TestScenario[]> = {}
+      await Promise.all(s.map(async suite => {
+        if (suite.id) {
+          scenarioMap[suite.id] = await getScenarios(suite.id)
+        }
+      }))
+      setScenarios(scenarioMap)
     } catch {
       setError('Failed to load test suites')
     } finally {
@@ -73,37 +102,31 @@ export default function TestSuitesPage() {
     }
   }
 
-  function openCreate() {
+  // ---- Suite modal ----
+
+  function openCreateSuite() {
     setEditingSuite(null)
-    setForm(emptyForm())
+    setSuiteForm(emptySuiteForm())
     setShowSuiteModal(true)
   }
 
-  function openEdit(s: TestSuite) {
+  function openEditSuite(s: TestSuite) {
     setEditingSuite(s)
-    setForm({
+    setSuiteForm({
       name: s.name,
       description: s.description ?? '',
       color: s.color ?? '#667eea',
       blocks: s.blocks ? [...s.blocks] : [],
-      expectations: s.expectations ? s.expectations.map(e => ({ ...e })) : [],
     })
     setShowSuiteModal(true)
   }
 
   async function saveSuite() {
-    setSaving(true)
+    setSavingSuite(true)
     try {
       const payload = {
-        ...form,
-        expectations: (form.expectations ?? []).map(e => ({
-          ...e,
-          mockEndpoint: e.mockEndpoint?.id ? { id: e.mockEndpoint.id } : undefined,
-          requiredBodyContains: e.requiredBodyContains || undefined,
-          maxCallCount: e.maxCallCount || undefined,
-          expectationOrder: e.expectationOrder || undefined,
-        })),
-        blocks: (form.blocks ?? []).map(b => ({ id: b.id })),
+        ...suiteForm,
+        blocks: (suiteForm.blocks ?? []).map(b => ({ id: b.id })),
       }
       if (editingSuite?.id) {
         await updateTestSuite(editingSuite.id, payload)
@@ -115,11 +138,11 @@ export default function TestSuitesPage() {
     } catch {
       setError('Failed to save test suite')
     } finally {
-      setSaving(false)
+      setSavingSuite(false)
     }
   }
 
-  async function handleDelete(s: TestSuite) {
+  async function handleDeleteSuite(s: TestSuite) {
     if (!confirm(`Delete test suite "${s.name}"?`)) return
     try {
       await deleteTestSuite(s.id!)
@@ -129,23 +152,125 @@ export default function TestSuitesPage() {
     }
   }
 
-  async function handleStartRun(s: TestSuite) {
+  function toggleBlock(block: Block) {
+    setSuiteForm(f => {
+      const current = f.blocks ?? []
+      const exists = current.some(b => b.id === block.id)
+      return {
+        ...f,
+        blocks: exists ? current.filter(b => b.id !== block.id) : [...current, { id: block.id!, name: block.name }],
+      }
+    })
+  }
+
+  // ---- Scenario modal ----
+
+  function openCreateScenario(suite: TestSuite) {
+    setEditingScenario(null)
+    setScenarioSuiteId(suite.id!)
+    setScenarioForm(emptyScenarioForm())
+    setShowScenarioModal(true)
+  }
+
+  function openEditScenario(suite: TestSuite, scenario: TestScenario) {
+    setEditingScenario(scenario)
+    setScenarioSuiteId(suite.id!)
+    setScenarioForm({
+      name: scenario.name,
+      description: scenario.description ?? '',
+      expectations: scenario.expectations ? scenario.expectations.map(e => ({ ...e })) : [],
+      responseOverrides: scenario.responseOverrides ? scenario.responseOverrides.map(o => ({ ...o })) : [],
+    })
+    setShowScenarioModal(true)
+  }
+
+  async function saveScenario() {
+    setSavingScenario(true)
     try {
-      await startRun(s.id!)
-      await openRuns(s)
-    } catch (e: unknown) {
-      setError('Failed to start run: ' + (e instanceof Error ? e.message : String(e)))
+      const payload = {
+        ...scenarioForm,
+        expectations: (scenarioForm.expectations ?? []).map(e => ({
+          ...e,
+          mockEndpoint: e.mockEndpoint?.id ? { id: e.mockEndpoint.id } : undefined,
+          requiredBodyContains: e.requiredBodyContains || undefined,
+          maxCallCount: e.maxCallCount || undefined,
+          expectationOrder: e.expectationOrder || undefined,
+        })),
+        responseOverrides: (scenarioForm.responseOverrides ?? [])
+          .filter(o => o.mockEndpoint?.id && o.mockResponse?.id)
+          .map(o => ({
+            mockEndpoint: { id: o.mockEndpoint!.id },
+            mockResponse: { id: o.mockResponse!.id },
+          })),
+      }
+      if (editingScenario?.id) {
+        await updateScenario(scenarioSuiteId!, editingScenario.id, payload)
+      } else {
+        await createScenario(scenarioSuiteId!, payload)
+      }
+      setShowScenarioModal(false)
+      await load()
+    } catch {
+      setError('Failed to save scenario')
+    } finally {
+      setSavingScenario(false)
     }
   }
 
-  async function openRuns(s: TestSuite) {
-    setSelectedSuite(s)
+  async function handleDeleteScenario(suite: TestSuite, scenario: TestScenario) {
+    if (!confirm(`Delete scenario "${scenario.name}"?`)) return
+    try {
+      await deleteScenario(suite.id!, scenario.id!)
+      await load()
+    } catch {
+      setError('Failed to delete scenario')
+    }
+  }
+
+  function addExpectation() {
+    setScenarioForm(f => ({ ...f, expectations: [...(f.expectations ?? []), emptyExpectation()] }))
+  }
+
+  function updateExpectation(i: number, patch: Partial<TestExpectation>) {
+    setScenarioForm(f => ({
+      ...f,
+      expectations: (f.expectations ?? []).map((e, idx) => idx === i ? { ...e, ...patch } : e),
+    }))
+  }
+
+  function removeExpectation(i: number) {
+    setScenarioForm(f => ({ ...f, expectations: (f.expectations ?? []).filter((_, idx) => idx !== i) }))
+  }
+
+  function addOverride() {
+    setScenarioForm(f => ({ ...f, responseOverrides: [...(f.responseOverrides ?? []), emptyOverride()] }))
+  }
+
+  function updateOverride(i: number, patch: Partial<ScenarioResponseOverride>) {
+    setScenarioForm(f => ({
+      ...f,
+      responseOverrides: (f.responseOverrides ?? []).map((o, idx) => idx === i ? { ...o, ...patch } : o),
+    }))
+  }
+
+  function removeOverride(i: number) {
+    setScenarioForm(f => ({ ...f, responseOverrides: (f.responseOverrides ?? []).filter((_, idx) => idx !== i) }))
+  }
+
+  // ---- Runs modal ----
+
+  async function openRuns(suite: TestSuite, scenario: TestScenario) {
+    setSelectedSuite(suite)
+    setSelectedScenario(scenario)
     setShowRunsModal(true)
     setLoadingRuns(true)
     try {
-      const [runsData, allTriggers] = await Promise.all([getRuns(s.id!), getTriggers()])
+      const [runsData, allTriggers] = await Promise.all([
+        getRuns(suite.id!, scenario.id!),
+        getTriggers(),
+      ])
       setRuns(runsData)
-      setSuiteTriggers(allTriggers.filter(t => t.testSuite?.id === s.id && t.enabled))
+      setScenarioTriggers(allTriggers.filter(t => t.testScenario?.id === scenario.id && t.enabled))
     } catch {
       setError('Failed to load runs')
     } finally {
@@ -153,13 +278,56 @@ export default function TestSuitesPage() {
     }
   }
 
+  async function handleStartRun(suite: TestSuite, scenario: TestScenario) {
+    try {
+      await startRun(suite.id!, scenario.id!)
+      await openRuns(suite, scenario)
+    } catch (e: unknown) {
+      setError('Failed to start run: ' + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+
   async function handleCompleteRun(run: TestRun) {
     try {
-      const updated = await completeRun(selectedSuite!.id!, run.id!)
+      const updated = await completeRun(selectedSuite!.id!, selectedScenario!.id!, run.id!)
       setRuns(prev => prev.map(r => r.id === updated.id ? updated : r))
-      await load()
     } catch (e: unknown) {
       setError('Failed to complete run: ' + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+
+  async function handleCancelRun(run: TestRun) {
+    if (!confirm('Cancel this run?')) return
+    try {
+      await cancelRun(selectedSuite!.id!, selectedScenario!.id!, run.id!)
+      setRuns(prev => prev.filter(r => r.id !== run.id))
+    } catch {
+      setError('Failed to cancel run')
+    }
+  }
+
+  async function handleClearRuns() {
+    if (!confirm('Delete all completed, failed and cancelled runs?')) return
+    try {
+      await clearRuns(selectedSuite!.id!, selectedScenario!.id!)
+      setRuns(prev => prev.filter(r => r.status === 'RUNNING'))
+    } catch {
+      setError('Failed to clear runs')
+    }
+  }
+
+  async function handleDownloadJUnit(run: TestRun) {
+    try {
+      const xml = await getJUnitXml(selectedSuite!.id!, selectedScenario!.id!, run.id!)
+      const blob = new Blob([xml], { type: 'application/xml' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `test-results-${run.id}.xml`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('Failed to download JUnit XML')
     }
   }
 
@@ -174,40 +342,7 @@ export default function TestSuitesPage() {
     }
   }
 
-  async function handleClearRuns() {
-    if (!confirm('Delete all completed, failed and cancelled runs?')) return
-    try {
-      await clearRuns(selectedSuite!.id!)
-      setRuns(prev => prev.filter(r => r.status === 'RUNNING'))
-    } catch {
-      setError('Failed to clear runs')
-    }
-  }
-
-  async function handleCancelRun(run: TestRun) {
-    if (!confirm('Cancel this run?')) return
-    try {
-      await cancelRun(selectedSuite!.id!, run.id!)
-      setRuns(prev => prev.filter(r => r.id !== run.id))
-    } catch {
-      setError('Failed to cancel run')
-    }
-  }
-
-  async function handleDownloadJUnit(run: TestRun) {
-    try {
-      const xml = await getJUnitXml(selectedSuite!.id!, run.id!)
-      const blob = new Blob([xml as unknown as string], { type: 'application/xml' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `test-results-${run.id}.xml`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch {
-      setError('Failed to download JUnit XML')
-    }
-  }
+  // ---- Import/export ----
 
   async function handleExport(s: TestSuite) {
     try {
@@ -244,39 +379,13 @@ export default function TestSuitesPage() {
     }
   }
 
-  function addExpectation() {
-    setForm(f => ({ ...f, expectations: [...(f.expectations ?? []), emptyExpectation()] }))
-  }
-
-  function updateExpectation(i: number, patch: Partial<TestExpectation>) {
-    setForm(f => ({
-      ...f,
-      expectations: (f.expectations ?? []).map((e, idx) => idx === i ? { ...e, ...patch } : e),
-    }))
-  }
-
-  function removeExpectation(i: number) {
-    setForm(f => ({ ...f, expectations: (f.expectations ?? []).filter((_, idx) => idx !== i) }))
-  }
-
-  function toggleBlock(block: Block) {
-    setForm(f => {
-      const current = f.blocks ?? []
-      const exists = current.some(b => b.id === block.id)
-      return {
-        ...f,
-        blocks: exists ? current.filter(b => b.id !== block.id) : [...current, { id: block.id!, name: block.name }],
-      }
-    })
-  }
-
   return (
     <div className="page">
       <div className="page-header">
         <h1>Test Suites</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn" onClick={() => importInputRef.current?.click()}>↑ Import</button>
-          <button className="btn btn-primary" onClick={openCreate}>+ New Suite</button>
+          <button className="btn btn-primary" onClick={openCreateSuite}>+ New Suite</button>
         </div>
       </div>
       <input ref={importInputRef} type="file" accept=".json" style={{ display: 'none' }} onChange={handleImport} />
@@ -300,50 +409,73 @@ export default function TestSuitesPage() {
       ) : suites.length === 0 ? (
         <div className="empty-state">
           <p>No test suites yet.</p>
-          <p className="muted">Create a suite to define expectations and run integration tests.</p>
+          <p className="muted">Create a suite to define test scenarios and run integration tests.</p>
         </div>
       ) : (
         <div className="suites-grid">
-          {suites.map(s => (
-            <div key={s.id} className="suite-card">
-              <div className="suite-card-accent" style={{ background: s.color ?? '#667eea' }} />
-              <div className="suite-card-body">
-                <div className="suite-card-header">
-                  <span className="suite-name">{s.name}</span>
-                  <div className="suite-actions">
-                    <button className="btn-link" onClick={() => openRuns(s)}>Runs</button>
-                    <button className="btn-link" onClick={() => openEdit(s)}>Edit</button>
-                    <button className="btn-link" onClick={() => handleExport(s)}>↓ Export</button>
-                    <button className="btn-link danger" onClick={() => handleDelete(s)}>Delete</button>
+          {suites.map(s => {
+            const suiteScenarios = scenarios[s.id!] ?? []
+            return (
+              <div key={s.id} className="suite-card">
+                <div className="suite-card-accent" style={{ background: s.color ?? '#667eea' }} />
+                <div className="suite-card-body">
+                  <div className="suite-card-header">
+                    <span className="suite-name">{s.name}</span>
+                    <div className="suite-actions">
+                      <button className="btn-link" onClick={() => openEditSuite(s)}>Edit</button>
+                      <button className="btn-link" onClick={() => handleExport(s)}>↓ Export</button>
+                      <button className="btn-link danger" onClick={() => handleDeleteSuite(s)}>Delete</button>
+                    </div>
+                  </div>
+
+                  {s.description && <p className="suite-desc">{s.description}</p>}
+
+                  {(s.blocks?.length ?? 0) > 0 && (
+                    <div className="suite-blocks">
+                      {s.blocks!.map(b => (
+                        <span key={b.id} className="block-tag">{b.name}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="scenarios-section">
+                    <div className="scenarios-header">
+                      <span className="scenarios-label">Scenarios</span>
+                      <button className="btn-link" onClick={() => openCreateScenario(s)}>+ Add</button>
+                    </div>
+                    {suiteScenarios.length === 0 ? (
+                      <p className="muted" style={{ margin: '0.25rem 0', fontSize: '0.85rem' }}>No scenarios yet.</p>
+                    ) : (
+                      suiteScenarios.map(sc => (
+                        <div key={sc.id} className="scenario-row">
+                          <div className="scenario-info">
+                            <span className="scenario-name">{sc.name}</span>
+                            <span className="scenario-count muted">
+                              {sc.expectations?.length ?? 0} exp
+                              {(sc.responseOverrides?.length ?? 0) > 0 && ` · ${sc.responseOverrides!.length} override${sc.responseOverrides!.length !== 1 ? 's' : ''}`}
+                            </span>
+                          </div>
+                          <div className="scenario-actions">
+                            <button className="btn btn-run btn-sm" onClick={() => handleStartRun(s, sc)}>▶ Run</button>
+                            <button className="btn-link" onClick={() => openRuns(s, sc)}>Runs</button>
+                            <button className="btn-link" onClick={() => openEditScenario(s, sc)}>Edit</button>
+                            <button className="btn-link danger" onClick={() => handleDeleteScenario(s, sc)}>Delete</button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-
-                {s.description && <p className="suite-desc">{s.description}</p>}
-
-                <div className="suite-meta">
-                  <span className="suite-stat">
-                    <span className="suite-stat-value">{s.expectations?.length ?? 0}</span> expectations
-                  </span>
-                  {(s.blocks?.length ?? 0) > 0 && (
-                    <span className="suite-stat">
-                      <span className="suite-stat-value">{s.blocks!.length}</span> blocks
-                    </span>
-                  )}
-                </div>
-
-                <div className="suite-card-footer">
-                  <button className="btn btn-run" onClick={() => handleStartRun(s)}>▶ Start Run</button>
-                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
       {/* Suite modal */}
       {showSuiteModal && (
         <div className="modal-overlay" onClick={() => setShowSuiteModal(false)}>
-          <div className="modal modal-xl" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingSuite ? 'Edit Suite' : 'New Test Suite'}</h2>
               <button className="modal-close" onClick={() => setShowSuiteModal(false)}>✕</button>
@@ -355,8 +487,8 @@ export default function TestSuitesPage() {
                     <label>Name</label>
                     <input
                       type="text"
-                      value={form.name ?? ''}
-                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      value={suiteForm.name ?? ''}
+                      onChange={e => setSuiteForm(f => ({ ...f, name: e.target.value }))}
                       placeholder="e.g. Order Flow Suite"
                     />
                   </div>
@@ -368,9 +500,9 @@ export default function TestSuitesPage() {
                       {COLORS.map(c => (
                         <button
                           key={c}
-                          className={`color-swatch ${form.color === c ? 'selected' : ''}`}
+                          className={`color-swatch ${suiteForm.color === c ? 'selected' : ''}`}
                           style={{ background: c }}
-                          onClick={() => setForm(f => ({ ...f, color: c }))}
+                          onClick={() => setSuiteForm(f => ({ ...f, color: c }))}
                         />
                       ))}
                     </div>
@@ -382,8 +514,8 @@ export default function TestSuitesPage() {
                 <label>Description</label>
                 <input
                   type="text"
-                  value={form.description ?? ''}
-                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  value={suiteForm.description ?? ''}
+                  onChange={e => setSuiteForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="Optional"
                 />
               </div>
@@ -396,7 +528,7 @@ export default function TestSuitesPage() {
                       <label key={b.id} className="block-checkbox">
                         <input
                           type="checkbox"
-                          checked={(form.blocks ?? []).some(fb => fb.id === b.id)}
+                          checked={(suiteForm.blocks ?? []).some(fb => fb.id === b.id)}
                           onChange={() => toggleBlock(b)}
                         />
                         <span className="block-dot" style={{ background: b.color ?? '#667eea' }} />
@@ -406,6 +538,44 @@ export default function TestSuitesPage() {
                   </div>
                 </div>
               )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn" onClick={() => setShowSuiteModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveSuite} disabled={savingSuite}>
+                {savingSuite ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Scenario modal */}
+      {showScenarioModal && (
+        <div className="modal-overlay" onClick={() => setShowScenarioModal(false)}>
+          <div className="modal modal-xl" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editingScenario ? 'Edit Scenario' : 'New Scenario'}</h2>
+              <button className="modal-close" onClick={() => setShowScenarioModal(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <label>Name</label>
+                <input
+                  type="text"
+                  value={scenarioForm.name ?? ''}
+                  onChange={e => setScenarioForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Happy Path"
+                />
+              </div>
+              <div className="form-row">
+                <label>Description</label>
+                <input
+                  type="text"
+                  value={scenarioForm.description ?? ''}
+                  onChange={e => setScenarioForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </div>
 
               <div className="form-row">
                 <div className="section-header">
@@ -413,11 +583,11 @@ export default function TestSuitesPage() {
                   <button className="btn-link" onClick={addExpectation}>+ Add</button>
                 </div>
 
-                {(form.expectations ?? []).length === 0 ? (
+                {(scenarioForm.expectations ?? []).length === 0 ? (
                   <p className="muted" style={{ margin: '0.5rem 0' }}>No expectations yet.</p>
                 ) : (
                   <div className="expectations-list">
-                    {(form.expectations ?? []).map((exp, i) => (
+                    {(scenarioForm.expectations ?? []).map((exp, i) => (
                       <div key={i} className="expectation-row">
                         <div className="exp-field">
                           <label>Name</label>
@@ -493,11 +663,75 @@ export default function TestSuitesPage() {
                   </div>
                 )}
               </div>
+
+              <div className="form-row">
+                <div className="section-header">
+                  <label>Response Overrides <span className="label-hint">(verplicht een specifieke response voor dit scenario)</span></label>
+                  <button className="btn-link" onClick={addOverride}>+ Add</button>
+                </div>
+
+                {(scenarioForm.responseOverrides ?? []).length === 0 ? (
+                  <p className="muted" style={{ margin: '0.5rem 0', fontSize: '0.85rem' }}>Geen overrides — alle endpoints gebruiken hun normale responses.</p>
+                ) : (
+                  <div className="overrides-list">
+                    {(scenarioForm.responseOverrides ?? []).map((ov, i) => {
+                      const epResponses = ov.mockEndpoint?.id
+                        ? (allEndpoints.find(ep => ep.id === ov.mockEndpoint!.id)?.responses ?? [])
+                        : []
+                      return (
+                        <div key={i} className="override-row">
+                          <div className="exp-field exp-field-endpoint">
+                            <label>Endpoint</label>
+                            <select
+                              value={ov.mockEndpoint?.id ?? ''}
+                              onChange={e => {
+                                const ep = allEndpoints.find(ep => ep.id === Number(e.target.value))
+                                updateOverride(i, {
+                                  mockEndpoint: ep ? { id: ep.id!, name: ep.name, httpMethod: ep.httpMethod, httpPath: ep.httpPath } : undefined,
+                                  mockResponse: undefined,
+                                })
+                              }}
+                            >
+                              <option value="">— select endpoint —</option>
+                              {allEndpoints.map(ep => (
+                                <option key={ep.id} value={ep.id}>
+                                  {ep.httpMethod} {ep.httpPath} ({ep.name})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="exp-field exp-field-endpoint">
+                            <label>Forceer response</label>
+                            <select
+                              value={ov.mockResponse?.id ?? ''}
+                              disabled={epResponses.length === 0}
+                              onChange={e => {
+                                const resp = epResponses.find(r => r.id === Number(e.target.value))
+                                updateOverride(i, {
+                                  mockResponse: resp ? { id: resp.id!, name: resp.name, responseStatusCode: resp.responseStatusCode } : undefined,
+                                })
+                              }}
+                            >
+                              <option value="">— select response —</option>
+                              {epResponses.map(r => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name} ({r.responseStatusCode})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <button className="btn-remove" onClick={() => removeOverride(i)} title="Remove">✕</button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="modal-footer">
-              <button className="btn" onClick={() => setShowSuiteModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={saveSuite} disabled={saving}>
-                {saving ? 'Saving...' : 'Save'}
+              <button className="btn" onClick={() => setShowScenarioModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveScenario} disabled={savingScenario}>
+                {savingScenario ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>
@@ -505,21 +739,21 @@ export default function TestSuitesPage() {
       )}
 
       {/* Runs modal */}
-      {showRunsModal && selectedSuite && (
+      {showRunsModal && selectedSuite && selectedScenario && (
         <div className="modal-overlay" onClick={() => setShowRunsModal(false)}>
           <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Runs — {selectedSuite.name}</h2>
+              <h2>Runs — {selectedSuite.name} / {selectedScenario.name}</h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {suiteTriggers.map(t => (
+                {scenarioTriggers.map(t => (
                   <button
                     key={t.id}
                     className="btn btn-fire"
                     onClick={() => handleFireTrigger(t)}
                     disabled={firingTrigger === t.id}
-                    title={`Fire trigger: ${t.name}`}
+                    title={t.name}
                   >
-                    {firingTrigger === t.id ? '...' : `▶ ${t.name}`}
+                    {firingTrigger === t.id ? '...' : '▶ Trigger'}
                   </button>
                 ))}
                 <button className="modal-close" onClick={() => setShowRunsModal(false)}>✕</button>
@@ -557,7 +791,7 @@ export default function TestSuitesPage() {
                     {run.results && run.results.length > 0 && (
                       <div className="run-results">
                         {run.results.map((result, i) => (
-                          <ResultRow key={result.id ?? i} result={result} suite={selectedSuite} />
+                          <ResultRow key={result.id ?? i} result={result} scenario={selectedScenario} />
                         ))}
                       </div>
                     )}
@@ -580,8 +814,8 @@ export default function TestSuitesPage() {
   )
 }
 
-function ResultRow({ result, suite }: { result: TestExpectationResult; suite: TestSuite }) {
-  const expectation = suite.expectations?.find(e => e.id === result.testExpectation?.id)
+function ResultRow({ result, scenario }: { result: TestExpectationResult; scenario: TestScenario }) {
+  const expectation = scenario.expectations?.find(e => e.id === result.testExpectation?.id)
   const name = expectation?.name ?? `Expectation #${result.testExpectation?.id}`
 
   return (

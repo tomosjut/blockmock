@@ -13,7 +13,7 @@ import java.util.*;
 public class TestSuiteExportService {
 
     private static final Logger LOG = Logger.getLogger(TestSuiteExportService.class);
-    private static final String VERSION = "1";
+    private static final String VERSION = "2";
 
     @Inject
     BlockService blockService;
@@ -26,24 +26,23 @@ public class TestSuiteExportService {
         TestSuite suite = TestSuite.findById(suiteId);
         if (suite == null) throw new IllegalArgumentException("TestSuite not found: " + suiteId);
 
-        // Collect all endpoints referenced by this suite (via blocks + expectations)
+        // Collect all endpoints referenced by this suite (via blocks + scenario expectations)
         Map<Long, MockEndpoint> endpointMap = new LinkedHashMap<>();
         for (Block block : suite.getBlocks()) {
-            Set<MockEndpoint> blockEndpoints = blockService.getBlockEndpoints(block.id);
-            for (MockEndpoint ep : blockEndpoints) {
+            for (MockEndpoint ep : blockService.getBlockEndpoints(block.id)) {
                 endpointMap.put(ep.id, ep);
             }
         }
-        // Also endpoints from expectations that may not be in a block
-        for (TestExpectation exp : suite.getExpectations()) {
-            if (exp.getMockEndpoint() != null) {
-                endpointMap.put(exp.getMockEndpoint().id, exp.getMockEndpoint());
+        for (TestScenario scenario : suite.getScenarios()) {
+            for (TestExpectation exp : scenario.getExpectations()) {
+                if (exp.getMockEndpoint() != null) {
+                    endpointMap.put(exp.getMockEndpoint().id, exp.getMockEndpoint());
+                }
             }
         }
 
         List<TestSuiteExport.EndpointExport> endpoints = endpointMap.values().stream()
-                .map(this::toEndpointExport)
-                .toList();
+                .map(this::toEndpointExport).toList();
 
         List<TestSuiteExport.BlockExport> blocks = suite.getBlocks().stream()
                 .map(block -> {
@@ -51,30 +50,39 @@ public class TestSuiteExportService {
                             .map(ep -> ep.getHttpMethod().name() + ":" + ep.getHttpPath())
                             .toList();
                     return new TestSuiteExport.BlockExport(block.getName(), block.getDescription(), block.getColor(), epKeys);
-                })
-                .toList();
+                }).toList();
 
-        List<TestSuiteExport.ExpectationExport> expectations = suite.getExpectations().stream()
-                .map(exp -> new TestSuiteExport.ExpectationExport(
-                        exp.getName(),
-                        exp.getMockEndpoint() != null ? exp.getMockEndpoint().getHttpMethod().name() : null,
-                        exp.getMockEndpoint() != null ? exp.getMockEndpoint().getHttpPath() : null,
-                        exp.getMinCallCount(),
-                        exp.getMaxCallCount(),
-                        exp.getRequiredBodyContains(),
-                        exp.getRequiredHeaders(),
-                        exp.getExpectationOrder()
-                ))
-                .toList();
+        List<TestSuiteExport.ScenarioExport> scenarios = suite.getScenarios().stream()
+                .map(scenario -> {
+                    List<TestSuiteExport.ExpectationExport> expectations = scenario.getExpectations().stream()
+                            .map(exp -> new TestSuiteExport.ExpectationExport(
+                                    exp.getName(),
+                                    exp.getMockEndpoint() != null ? exp.getMockEndpoint().getHttpMethod().name() : null,
+                                    exp.getMockEndpoint() != null ? exp.getMockEndpoint().getHttpPath() : null,
+                                    exp.getMinCallCount(), exp.getMaxCallCount(),
+                                    exp.getRequiredBodyContains(), exp.getRequiredHeaders(),
+                                    exp.getExpectationOrder()
+                            )).toList();
 
-        List<TestSuiteExport.TriggerExport> triggers = TriggerConfig.<TriggerConfig>list("testSuite", suite)
-                .stream()
-                .map(t -> new TestSuiteExport.TriggerExport(
-                        t.getName(), t.getDescription(), t.getType().name(),
-                        t.getHttpUrl(), t.getHttpMethod(), t.getHttpBody(), t.getHttpHeaders(),
-                        t.getCronExpression(), t.getEnabled()
-                ))
-                .toList();
+                    List<TestSuiteExport.TriggerExport> triggers =
+                            TriggerConfig.<TriggerConfig>list("testScenario", scenario).stream()
+                            .map(t -> new TestSuiteExport.TriggerExport(
+                                    t.getName(), t.getDescription(), t.getType().name(),
+                                    t.getHttpUrl(), t.getHttpMethod(), t.getHttpBody(),
+                                    t.getHttpHeaders(), t.getCronExpression(), t.getEnabled()
+                            )).toList();
+
+                    List<TestSuiteExport.OverrideExport> overrides = scenario.getResponseOverrides().stream()
+                            .filter(o -> o.getMockEndpoint() != null && o.getMockResponse() != null)
+                            .map(o -> new TestSuiteExport.OverrideExport(
+                                    o.getMockEndpoint().getHttpMethod().name(),
+                                    o.getMockEndpoint().getHttpPath(),
+                                    o.getMockResponse().getName()
+                            )).toList();
+
+                    return new TestSuiteExport.ScenarioExport(
+                            scenario.getName(), scenario.getDescription(), expectations, triggers, overrides);
+                }).toList();
 
         return new TestSuiteExport(
                 VERSION,
@@ -82,8 +90,7 @@ public class TestSuiteExportService {
                 new TestSuiteExport.SuiteExport(suite.getName(), suite.getDescription(), suite.getColor()),
                 endpoints,
                 blocks,
-                expectations,
-                triggers
+                scenarios
         );
     }
 
@@ -94,8 +101,7 @@ public class TestSuiteExportService {
                         r.getResponseBody(), r.getResponseDelayMs(),
                         r.getMatchBody(), r.getMatchHeaders(), r.getMatchQueryParams(),
                         r.getResponseHeaders()
-                ))
-                .toList();
+                )).toList();
         return new TestSuiteExport.EndpointExport(
                 ep.getName(), ep.getDescription(),
                 ep.getHttpMethod().name(), ep.getHttpPath(),
@@ -113,7 +119,7 @@ public class TestSuiteExportService {
     public ImportResult importSuite(TestSuiteExport export) {
         ImportResult result = new ImportResult();
 
-        // 1. Endpoints — match by (method + path), create if missing
+        // 1. Endpoints
         Map<String, MockEndpoint> endpointByKey = new HashMap<>();
         for (TestSuiteExport.EndpointExport epExport : export.endpoints()) {
             String key = epExport.httpMethod() + ":" + epExport.httpPath();
@@ -121,16 +127,14 @@ public class TestSuiteExportService {
             if (existing != null) {
                 endpointByKey.put(key, existing);
                 result.endpointsLinked++;
-                LOG.infof("Linked existing endpoint: %s %s", epExport.httpMethod(), epExport.httpPath());
             } else {
                 MockEndpoint created = createEndpoint(epExport);
                 endpointByKey.put(key, created);
                 result.endpointsCreated++;
-                LOG.infof("Created endpoint: %s %s", epExport.httpMethod(), epExport.httpPath());
             }
         }
 
-        // 2. Blocks — match by name, create if missing, always sync endpoints
+        // 2. Blocks
         Map<String, Block> blockByName = new HashMap<>();
         for (TestSuiteExport.BlockExport blockExport : export.blocks()) {
             Block block = Block.find("name", blockExport.name()).firstResult();
@@ -141,22 +145,17 @@ public class TestSuiteExportService {
                 block.setColor(blockExport.color() != null ? blockExport.color() : "#667eea");
                 block.persist();
                 result.blocksCreated++;
-                LOG.infof("Created block: %s", blockExport.name());
             } else {
                 result.blocksLinked++;
-                LOG.infof("Linked existing block: %s", blockExport.name());
             }
-            // Add endpoints to block (idempotent via Set)
             for (String epKey : blockExport.endpointKeys()) {
                 MockEndpoint ep = endpointByKey.get(epKey);
-                if (ep != null) {
-                    blockService.addEndpointToBlock(block.id, ep.id);
-                }
+                if (ep != null) blockService.addEndpointToBlock(block.id, ep.id);
             }
             blockByName.put(blockExport.name(), block);
         }
 
-        // 3. Test suite — match by name, create or update
+        // 3. Test suite
         TestSuite suite = TestSuite.find("name", export.testSuite().name()).firstResult();
         boolean suiteCreated = suite == null;
         if (suite == null) {
@@ -166,55 +165,75 @@ public class TestSuiteExportService {
         }
         suite.setDescription(export.testSuite().description());
         suite.setColor(export.testSuite().color() != null ? export.testSuite().color() : "#667eea");
-
-        // Set blocks
         suite.getBlocks().clear();
-        for (Block block : blockByName.values()) {
-            suite.getBlocks().add(block);
-        }
+        for (Block block : blockByName.values()) suite.getBlocks().add(block);
+        suite.getScenarios().clear();
 
-        // Set expectations
-        suite.getExpectations().clear();
-        for (TestSuiteExport.ExpectationExport expExport : export.expectations()) {
-            TestExpectation exp = new TestExpectation();
-            exp.setName(expExport.name());
-            exp.setMinCallCount(expExport.minCallCount() != null ? expExport.minCallCount() : 1);
-            exp.setMaxCallCount(expExport.maxCallCount());
-            exp.setRequiredBodyContains(expExport.requiredBodyContains());
-            exp.setRequiredHeaders(expExport.requiredHeaders());
-            exp.setExpectationOrder(expExport.expectationOrder());
-            exp.setTestSuite(suite);
-            if (expExport.endpointMethod() != null && expExport.endpointPath() != null) {
-                String key = expExport.endpointMethod() + ":" + expExport.endpointPath();
-                exp.setMockEndpoint(endpointByKey.get(key));
+        // 4. Scenarios
+        for (TestSuiteExport.ScenarioExport scenarioExport : export.scenarios()) {
+            TestScenario scenario = new TestScenario();
+            scenario.setName(scenarioExport.name());
+            scenario.setDescription(scenarioExport.description());
+            scenario.setTestSuite(suite);
+
+            for (TestSuiteExport.ExpectationExport expExport : scenarioExport.expectations()) {
+                TestExpectation exp = new TestExpectation();
+                exp.setName(expExport.name());
+                exp.setMinCallCount(expExport.minCallCount() != null ? expExport.minCallCount() : 1);
+                exp.setMaxCallCount(expExport.maxCallCount());
+                exp.setRequiredBodyContains(expExport.requiredBodyContains());
+                exp.setRequiredHeaders(expExport.requiredHeaders());
+                exp.setExpectationOrder(expExport.expectationOrder());
+                exp.setTestScenario(scenario);
+                if (expExport.endpointMethod() != null && expExport.endpointPath() != null) {
+                    exp.setMockEndpoint(endpointByKey.get(expExport.endpointMethod() + ":" + expExport.endpointPath()));
+                }
+                scenario.getExpectations().add(exp);
             }
-            suite.getExpectations().add(exp);
+
+            suite.getScenarios().add(scenario);
         }
 
-        if (suiteCreated) {
-            suite.persist();
-        }
+        if (suiteCreated) suite.persist();
 
-        // 4. Triggers — recreate (URLs are environment-specific, skip duplicates by name)
-        for (TestSuiteExport.TriggerExport tExport : export.triggers()) {
-            long existing = TriggerConfig.count("testSuite = ?1 and name = ?2", suite, tExport.name());
-            if (existing > 0) {
-                result.triggersSkipped++;
-                continue;
+        // 5. Triggers + overrides — per scenario
+        for (TestSuiteExport.ScenarioExport scenarioExport : export.scenarios()) {
+            TestScenario scenario = suite.getScenarios().stream()
+                    .filter(s -> s.getName().equals(scenarioExport.name()))
+                    .findFirst().orElse(null);
+            if (scenario == null || scenario.id == null) continue;
+
+            for (TestSuiteExport.TriggerExport tExport : scenarioExport.triggers()) {
+                long existing = TriggerConfig.count("testScenario = ?1 and name = ?2", scenario, tExport.name());
+                if (existing > 0) { result.triggersSkipped++; continue; }
+                TriggerConfig trigger = new TriggerConfig();
+                trigger.setName(tExport.name());
+                trigger.setDescription(tExport.description());
+                trigger.setType(TriggerType.valueOf(tExport.type()));
+                trigger.setHttpUrl(tExport.httpUrl());
+                trigger.setHttpMethod(tExport.httpMethod());
+                trigger.setHttpBody(tExport.httpBody());
+                trigger.setHttpHeaders(tExport.httpHeaders());
+                trigger.setCronExpression(tExport.cronExpression());
+                trigger.setEnabled(tExport.enabled() != null ? tExport.enabled() : true);
+                trigger.setTestScenario(scenario);
+                trigger.persist();
+                result.triggersCreated++;
             }
-            TriggerConfig trigger = new TriggerConfig();
-            trigger.setName(tExport.name());
-            trigger.setDescription(tExport.description());
-            trigger.setType(TriggerType.valueOf(tExport.type()));
-            trigger.setHttpUrl(tExport.httpUrl());
-            trigger.setHttpMethod(tExport.httpMethod());
-            trigger.setHttpBody(tExport.httpBody());
-            trigger.setHttpHeaders(tExport.httpHeaders());
-            trigger.setCronExpression(tExport.cronExpression());
-            trigger.setEnabled(tExport.enabled() != null ? tExport.enabled() : true);
-            trigger.setTestSuite(suite);
-            trigger.persist();
-            result.triggersCreated++;
+
+            for (TestSuiteExport.OverrideExport oExport : scenarioExport.responseOverrides()) {
+                MockEndpoint ep = findEndpointByKey(oExport.endpointMethod(), oExport.endpointPath());
+                if (ep == null) continue;
+                MockResponse resp = ep.getResponses().stream()
+                        .filter(r -> oExport.responseName().equals(r.getName()))
+                        .findFirst().orElse(null);
+                if (resp == null) continue;
+                ScenarioResponseOverride override = new ScenarioResponseOverride();
+                override.setTestScenario(scenario);
+                override.setMockEndpoint(ep);
+                override.setMockResponse(resp);
+                override.persist();
+            }
         }
 
         result.suiteName = suite.getName();
@@ -237,7 +256,6 @@ public class TestSuiteExportService {
         ep.setHttpMethod(HttpMethod.valueOf(epExport.httpMethod()));
         ep.setHttpPath(epExport.httpPath());
         ep.setHttpPathRegex(epExport.httpPathRegex());
-
         for (TestSuiteExport.ResponseExport rExport : epExport.responses()) {
             MockResponse response = new MockResponse();
             response.setName(rExport.name());
@@ -265,8 +283,7 @@ public class TestSuiteExportService {
             SuiteExport testSuite,
             List<EndpointExport> endpoints,
             List<BlockExport> blocks,
-            List<ExpectationExport> expectations,
-            List<TriggerExport> triggers
+            List<ScenarioExport> scenarios
     ) {
         public record SuiteExport(String name, String description, String color) {}
 
@@ -285,6 +302,17 @@ public class TestSuiteExportService {
         ) {}
 
         public record BlockExport(String name, String description, String color, List<String> endpointKeys) {}
+
+        public record ScenarioExport(
+                String name, String description,
+                List<ExpectationExport> expectations,
+                List<TriggerExport> triggers,
+                List<OverrideExport> responseOverrides
+        ) {}
+
+        public record OverrideExport(
+                String endpointMethod, String endpointPath, String responseName
+        ) {}
 
         public record ExpectationExport(
                 String name,

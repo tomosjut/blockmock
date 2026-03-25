@@ -1,5 +1,6 @@
 package nl.blockmock.domain;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
@@ -8,15 +9,18 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 @Entity
-@Table(name = "test_suite")
+@Table(name = "test_scenario")
 @Getter
 @Setter
-public class TestSuite extends PanacheEntity {
+public class TestScenario extends PanacheEntity {
+
+    @JsonBackReference("suite-scenarios")
+    @ManyToOne
+    @JoinColumn(name = "test_suite_id", nullable = false)
+    private TestSuite testSuite;
 
     @Column(nullable = false)
     private String name;
@@ -24,20 +28,13 @@ public class TestSuite extends PanacheEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(length = 20)
-    private String color = "#667eea";
+    @JsonManagedReference("scenario-expectations")
+    @OneToMany(mappedBy = "testScenario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TestExpectation> expectations = new ArrayList<>();
 
-    @ManyToMany
-    @JoinTable(
-        name = "test_suite_block",
-        joinColumns = @JoinColumn(name = "test_suite_id"),
-        inverseJoinColumns = @JoinColumn(name = "block_id")
-    )
-    private Set<Block> blocks = new HashSet<>();
-
-    @JsonManagedReference("suite-scenarios")
-    @OneToMany(mappedBy = "testSuite", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<TestScenario> scenarios = new ArrayList<>();
+    @JsonManagedReference("scenario-overrides")
+    @OneToMany(mappedBy = "testScenario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ScenarioResponseOverride> responseOverrides = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

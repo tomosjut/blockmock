@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import type { TriggerConfig, TriggerFireResult, TriggerType } from '../types'
-import type { TestSuite } from '../types'
+import type { TriggerConfig, TriggerFireResult, TriggerType, TestScenario } from '../types'
 import { getTriggers, createTrigger, updateTrigger, deleteTrigger, fireTrigger } from '../api/triggers'
-import { getTestSuites } from '../api/testsuites'
+import { getTestSuites, getScenarios } from '../api/testsuites'
 import './TriggersPage.css'
 
 const emptyForm = (): Partial<TriggerConfig> => ({
@@ -15,9 +14,14 @@ const emptyForm = (): Partial<TriggerConfig> => ({
   enabled: true,
 })
 
+interface ScenarioOption {
+  id: number
+  label: string
+}
+
 export default function TriggersPage() {
   const [triggers, setTriggers] = useState<TriggerConfig[]>([])
-  const [suites, setSuites] = useState<TestSuite[]>([])
+  const [scenarioOptions, setScenarioOptions] = useState<ScenarioOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -34,9 +38,14 @@ export default function TriggersPage() {
   async function load() {
     try {
       setLoading(true)
-      const [t, s] = await Promise.all([getTriggers(), getTestSuites()])
+      const [t, suites] = await Promise.all([getTriggers(), getTestSuites()])
       setTriggers(t)
-      setSuites(s)
+      const opts: ScenarioOption[] = []
+      await Promise.all(suites.map(async s => {
+        const scens = await getScenarios(s.id!)
+        scens.forEach((sc: TestScenario) => opts.push({ id: sc.id!, label: `${s.name} / ${sc.name}` }))
+      }))
+      setScenarioOptions(opts)
     } catch {
       setError('Failed to load triggers')
     } finally {
@@ -52,7 +61,7 @@ export default function TriggersPage() {
 
   function openEdit(t: TriggerConfig) {
     setEditing(t)
-    setForm({ ...t, testSuite: t.testSuite })
+    setForm({ ...t, testScenario: t.testScenario })
     setShowModal(true)
   }
 
@@ -61,7 +70,7 @@ export default function TriggersPage() {
     try {
       const payload = {
         ...form,
-        testSuite: form.testSuite?.id ? { id: form.testSuite.id } : undefined,
+        testScenario: form.testScenario?.id ? { id: form.testScenario.id } : undefined,
       }
       if (editing?.id) {
         await updateTrigger(editing.id, payload)
@@ -157,8 +166,10 @@ export default function TriggersPage() {
                     {t.type === 'CRON' && t.cronExpression && (
                       <code className="trigger-cron">{t.cronExpression}</code>
                     )}
-                    {t.testSuite && (
-                      <span className="trigger-suite">→ {t.testSuite.name ?? `Suite #${t.testSuite.id}`}</span>
+                    {t.testScenario && (
+                      <span className="trigger-suite">
+                        → {scenarioOptions.find(o => o.id === t.testScenario!.id)?.label ?? `Scenario #${t.testScenario.id}`}
+                      </span>
                     )}
                   </div>
                   {t.lastFiredAt && (
@@ -229,16 +240,16 @@ export default function TriggersPage() {
               </div>
 
               <div className="form-row">
-                <label>Test Suite <span className="label-hint">(run will be started when trigger fires)</span></label>
+                <label>Scenario <span className="label-hint">(optional — shown in Runs modal)</span></label>
                 <select
-                  value={form.testSuite?.id ?? ''}
+                  value={form.testScenario?.id ?? ''}
                   onChange={e => {
-                    const suite = suites.find(s => s.id === Number(e.target.value))
-                    setForm(f => ({ ...f, testSuite: suite ? { id: suite.id!, name: suite.name } : undefined }))
+                    const opt = scenarioOptions.find(o => o.id === Number(e.target.value))
+                    setForm(f => ({ ...f, testScenario: opt ? { id: opt.id } : undefined }))
                   }}
                 >
                   <option value="">— none —</option>
-                  {suites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {scenarioOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                 </select>
               </div>
 

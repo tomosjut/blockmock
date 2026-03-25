@@ -105,6 +105,11 @@ public class HttpMockService {
                                               Map<String, String> headers,
                                               Map<String, String> queryParams,
                                               String body) {
+        // Forced response takes absolute priority (set by scenario run)
+        if (endpoint.getForcedResponse() != null) {
+            return endpoint.getForcedResponse();
+        }
+
         // Get responses sorted by priority (highest first)
         List<MockResponse> responses = endpoint.getResponses().stream()
                 .sorted((r1, r2) -> Integer.compare(r2.getPriority(), r1.getPriority()))

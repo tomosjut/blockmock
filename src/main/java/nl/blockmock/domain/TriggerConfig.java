@@ -27,10 +27,10 @@ public class TriggerConfig extends PanacheEntity {
     @Column(nullable = false, length = 50)
     private TriggerType type;
 
-    @JsonIgnoreProperties({"blocks", "expectations", "triggers", "createdAt", "updatedAt"})
+    @JsonIgnoreProperties({"expectations", "responseOverrides", "testSuite", "createdAt", "updatedAt"})
     @ManyToOne
-    @JoinColumn(name = "test_suite_id")
-    private TestSuite testSuite;
+    @JoinColumn(name = "test_scenario_id")
+    private TestScenario testScenario;
 
     // HTTP trigger fields
     @Column(name = "http_url", length = 2000)

@@ -16,10 +16,10 @@ import java.util.List;
 @Setter
 public class TestRun extends PanacheEntity {
 
-    @JsonBackReference
+    @JsonBackReference("scenario-runs")
     @ManyToOne
-    @JoinColumn(name = "test_suite_id", nullable = false)
-    private TestSuite testSuite;
+    @JoinColumn(name = "test_scenario_id", nullable = false)
+    private TestScenario testScenario;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)

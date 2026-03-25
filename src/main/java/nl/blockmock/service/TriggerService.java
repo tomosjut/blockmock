@@ -6,7 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import nl.blockmock.domain.TestSuite;
+import nl.blockmock.domain.TestScenario;
 import nl.blockmock.domain.TriggerConfig;
 import nl.blockmock.domain.TriggerType;
 import org.jboss.logging.Logger;
@@ -77,9 +77,8 @@ public class TriggerService {
 
     @Transactional
     public TriggerConfig create(TriggerConfig trigger) {
-        if (trigger.getTestSuite() != null && trigger.getTestSuite().id != null) {
-            TestSuite suite = TestSuite.findById(trigger.getTestSuite().id);
-            trigger.setTestSuite(suite);
+        if (trigger.getTestScenario() != null && trigger.getTestScenario().id != null) {
+            trigger.setTestScenario(TestScenario.findById(trigger.getTestScenario().id));
         }
         trigger.persist();
         if (trigger.getType() == TriggerType.CRON && Boolean.TRUE.equals(trigger.getEnabled())
@@ -106,10 +105,10 @@ public class TriggerService {
         trigger.setHttpHeaders(updates.getHttpHeaders());
         trigger.setCronExpression(updates.getCronExpression());
 
-        if (updates.getTestSuite() != null && updates.getTestSuite().id != null) {
-            trigger.setTestSuite(TestSuite.findById(updates.getTestSuite().id));
+        if (updates.getTestScenario() != null && updates.getTestScenario().id != null) {
+            trigger.setTestScenario(TestScenario.findById(updates.getTestScenario().id));
         } else {
-            trigger.setTestSuite(null);
+            trigger.setTestScenario(null);
         }
 
         if (trigger.getType() == TriggerType.CRON && Boolean.TRUE.equals(trigger.getEnabled())
@@ -168,7 +167,8 @@ public class TriggerService {
                 responseBody = response.body();
                 LOG.infof("Trigger %s fired: %s %s -> %d", trigger.getName(), method, trigger.getHttpUrl(), responseStatus);
             } catch (Exception e) {
-                error = e.getMessage();
+                Throwable cause = e.getCause() != null ? e.getCause() : e;
+                error = cause.getClass().getSimpleName() + ": " + (cause.getMessage() != null ? cause.getMessage() : e.getClass().getSimpleName());
                 LOG.warnf("Trigger %s HTTP call failed: %s", trigger.getName(), error);
             }
         }
