@@ -1,0 +1,205 @@
+{
+  "version": "2",
+  "exportedAt": "2026-03-25T00:00:00",
+  "testSuite": {
+    "name": "Order Flow Suite",
+    "description": "Verifies all external services are called in the correct order",
+    "color": "#cba6f7"
+  },
+  "endpoints": [
+    {
+      "name": "Payment Charge",
+      "description": "Charges the customer for an order",
+      "httpMethod": "POST",
+      "httpPath": "/api/payment/charge",
+      "httpPathRegex": false,
+      "pattern": "REQUEST_REPLY",
+      "responses": [
+        {
+          "name": "Approved",
+          "priority": 0,
+          "responseStatusCode": 200,
+          "responseBody": "{\"transactionId\": \"tx-abc123\", \"status\": \"approved\", \"amount\": 29.99}",
+          "responseDelayMs": 0,
+          "matchBody": null,
+          "matchHeaders": null,
+          "matchQueryParams": null,
+          "responseHeaders": null
+        },
+        {
+          "name": "Payment Declined",
+          "priority": 0,
+          "responseStatusCode": 402,
+          "responseBody": "{\"error\": \"payment_declined\", \"message\": \"Insufficient funds\"}",
+          "responseDelayMs": 0,
+          "matchBody": null,
+          "matchHeaders": null,
+          "matchQueryParams": null,
+          "responseHeaders": null
+        }
+      ]
+    },
+    {
+      "name": "Inventory Reserve",
+      "description": "Reserves stock for an order",
+      "httpMethod": "POST",
+      "httpPath": "/api/inventory/reserve",
+      "httpPathRegex": false,
+      "pattern": "REQUEST_REPLY",
+      "responses": [
+        {
+          "name": "Reserved",
+          "priority": 0,
+          "responseStatusCode": 200,
+          "responseBody": "{\"reservationId\": \"res-xyz789\", \"status\": \"reserved\"}",
+          "responseDelayMs": 0,
+          "matchBody": null,
+          "matchHeaders": null,
+          "matchQueryParams": null,
+          "responseHeaders": null
+        }
+      ]
+    },
+    {
+      "name": "Notifications Send",
+      "description": "Sends an order confirmation notification",
+      "httpMethod": "POST",
+      "httpPath": "/api/notifications/send",
+      "httpPathRegex": false,
+      "pattern": "REQUEST_REPLY",
+      "responses": [
+        {
+          "name": "Sent",
+          "priority": 0,
+          "responseStatusCode": 200,
+          "responseBody": "{\"messageId\": \"msg-001\", \"status\": \"sent\"}",
+          "responseDelayMs": 0,
+          "matchBody": null,
+          "matchHeaders": null,
+          "matchQueryParams": null,
+          "responseHeaders": null
+        }
+      ]
+    }
+  ],
+  "blocks": [
+    {
+      "name": "Order Flow",
+      "description": "All external services called during order processing",
+      "color": "#89b4fa",
+      "endpointKeys": [
+        "POST:/api/payment/charge",
+        "POST:/api/inventory/reserve",
+        "POST:/api/notifications/send"
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Happy Path",
+      "description": "All services called once in the correct order",
+      "expectations": [
+        {
+          "name": "Payment is charged",
+          "endpointMethod": "POST",
+          "endpointPath": "/api/payment/charge",
+          "minCallCount": 1,
+          "maxCallCount": 1,
+          "requiredBodyContains": null,
+          "requiredHeaders": null,
+          "expectationOrder": 1
+        },
+        {
+          "name": "Inventory is reserved",
+          "endpointMethod": "POST",
+          "endpointPath": "/api/inventory/reserve",
+          "minCallCount": 1,
+          "maxCallCount": 1,
+          "requiredBodyContains": null,
+          "requiredHeaders": null,
+          "expectationOrder": 2
+        },
+        {
+          "name": "Notification is sent",
+          "endpointMethod": "POST",
+          "endpointPath": "/api/notifications/send",
+          "minCallCount": 1,
+          "maxCallCount": 1,
+          "requiredBodyContains": null,
+          "requiredHeaders": null,
+          "expectationOrder": 3
+        }
+      ],
+      "triggers": [
+        {
+          "name": "Place Order",
+          "description": "Posts a test order to the order service",
+          "type": "HTTP",
+          "httpUrl": "http://localhost:3000/orders",
+          "httpMethod": "POST",
+          "httpBody": "{\"customerId\":\"cust-1\",\"items\":[{\"sku\":\"BOOK-01\",\"qty\":2}],\"totalAmount\":29.99}",
+          "httpHeaders": null,
+          "cronExpression": null,
+          "enabled": true
+        }
+      ],
+      "responseOverrides": []
+    },
+    {
+      "name": "Payment Failure",
+      "description": "Payment service returns 402 — inventory and notifications must NOT be called",
+      "expectations": [
+        {
+          "name": "Payment attempted",
+          "endpointMethod": "POST",
+          "endpointPath": "/api/payment/charge",
+          "minCallCount": 1,
+          "maxCallCount": 1,
+          "requiredBodyContains": null,
+          "requiredHeaders": null,
+          "expectationOrder": null
+        },
+        {
+          "name": "Inventory NOT reserved",
+          "endpointMethod": "POST",
+          "endpointPath": "/api/inventory/reserve",
+          "minCallCount": 0,
+          "maxCallCount": 0,
+          "requiredBodyContains": null,
+          "requiredHeaders": null,
+          "expectationOrder": null
+        },
+        {
+          "name": "Notification NOT sent",
+          "endpointMethod": "POST",
+          "endpointPath": "/api/notifications/send",
+          "minCallCount": 0,
+          "maxCallCount": 0,
+          "requiredBodyContains": null,
+          "requiredHeaders": null,
+          "expectationOrder": null
+        }
+      ],
+      "triggers": [
+        {
+          "name": "Place Order (Failure)",
+          "description": "Same order request — payment mock is forced to 402 by the scenario override",
+          "type": "HTTP",
+          "httpUrl": "http://localhost:3000/orders",
+          "httpMethod": "POST",
+          "httpBody": "{\"customerId\":\"cust-1\",\"items\":[{\"sku\":\"BOOK-01\",\"qty\":2}],\"totalAmount\":29.99}",
+          "httpHeaders": null,
+          "cronExpression": null,
+          "enabled": true
+        }
+      ],
+      "responseOverrides": [
+        {
+          "endpointMethod": "POST",
+          "endpointPath": "/api/payment/charge",
+          "responseName": "Payment Declined"
+        }
+      ]
+    }
+  ]
+}

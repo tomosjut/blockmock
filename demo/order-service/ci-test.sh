@@ -14,7 +14,7 @@ BASE="${BLOCKMOCK_URL:-http://localhost:8080}/api"
 SUITE_NAME=""
 SCENARIO_NAME=""
 WAIT_SECONDS=3
-JUNIT_FILE=""
+JUNIT_FILE="ci-output/results.xml"
 
 usage() {
   echo "Usage: $0 --suite NAME --scenario NAME [--wait SECONDS] [--junit FILE] [--url URL]" >&2
@@ -106,6 +106,7 @@ RUN_STATUS=$(echo "$RESULT" | grep -o '"status":"[A-Z]*"' | head -1 | cut -d'"' 
 # ── JUnit XML ────────────────────────────────────────────────────────────────
 
 if [ -n "$JUNIT_FILE" ]; then
+  mkdir -p "$(dirname "$JUNIT_FILE")"
   curl -sf "$BASE/test-suites/$SUITE_ID/scenarios/$SCENARIO_ID/runs/$RUN_ID/junit" \
     > "$JUNIT_FILE"
   log "JUnit XML: $JUNIT_FILE"
