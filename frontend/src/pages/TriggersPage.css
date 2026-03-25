@@ -289,3 +289,19 @@
   cursor: pointer;
   accent-color: #cba6f7;
 }
+
+.header-rows { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.header-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.header-row input { flex: 1; }
+.header-row input:first-child { flex: 0 0 35%; }
+
+.btn-sm {
+  font-size: 0.75rem !important;
+  padding: 0.25rem 0.6rem !important;
+}

@@ -1,357 +1,126 @@
-# 🧱 BlockMock
+# BlockMock
 
-**Een krachtige multi-protocol mock server voor integration testing**
+**HTTP mock server for integration testing.**
 
-BlockMock is een generieke mock server die verschillende protocollen en communicatie patterns ondersteunt. Perfect voor het testen van je applicaties zonder afhankelijk te zijn van externe services.
+BlockMock lets you define mock HTTP endpoints and verify that your application calls them correctly — in the right order, with the right frequency. Run it next to your application during tests.
 
-## ✨ Features
+## Quick Start
 
-### 🌐 Multi-Protocol Support
-- **HTTP/HTTPS** - REST API mocking met geavanceerde response matching
-- **SFTP** - File server mocking voor upload/download testing
-- **AMQP/RabbitMQ** - Message queue mocking
-- **SQL Databases** - PostgreSQL, MySQL, SQL Server, Oracle (met stored procedures!)
+**Prerequisites:** Java 21+, PostgreSQL 16 (or Docker)
 
-### 🎯 Geavanceerde Functionaliteit
-- **📥 Import/Export** - Exporteer en importeer endpoints als JSON
-- **📋 Templates** - Voorgedefinieerde templates voor snelle setup (REST API, GraphQL, OAuth2, etc.)
-- **🎬 Scenarios** - Sequentiële endpoint activatie voor complexe testscenarios
-- **📊 Metrics & Monitoring** - Real-time statistics per endpoint
-- **🔗 Blocks** - Groupeer endpoints voor eenvoudig beheer
-- **📖 OpenAPI/Swagger** - Automatische API documentatie
-
-### 🎨 Advanced HTTP Mocking
-- Response matching op headers, query parameters en body
-- Regex support voor flexibele path matching
-- Multiple responses per endpoint met priority
-- Configurable delays voor latency simulation
-- Custom headers en status codes
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Java 21+
-- Docker & Docker Compose **OF** Podman & podman-compose
-- Maven 3.8+
-
-### Installatie
-
+### 1. Start PostgreSQL
 ```bash
-# Clone de repository
-git clone https://github.com/yourusername/blockmock.git
-cd blockmock
-
-# Start de applicatie
-./start.sh
-
-# Stop de applicatie (als je klaar bent)
-./stop.sh
+docker compose up -d postgres
 ```
 
-De applicatie is nu beschikbaar op:
-- **Web UI**: http://localhost:8080
-- **Swagger UI**: http://localhost:8080/swagger-ui
-- **OpenAPI Spec**: http://localhost:8080/openapi
-
-### 🐳 Docker vs Podman
-
-BlockMock ondersteunt zowel Docker als Podman! Het `start.sh` script detecteert automatisch welke container runtime beschikbaar is.
-
-**Met Podman:**
+### 2. Download and run BlockMock
+Download the latest JAR from the [Releases](../../releases) page, then:
 ```bash
-# Installeer Podman (Ubuntu/Debian)
-sudo apt-get install podman
-
-# Installeer podman-compose
-pip3 install podman-compose
-
-# Of gebruik ingebouwde 'podman compose' (Podman 4.0+)
-# Geen extra installatie nodig
-
-# Start de applicatie (werkt hetzelfde)
-./start.sh
+java -jar blockmock-<version>.jar
 ```
 
-**Handmatig starten met Podman:**
-```bash
-# Start PostgreSQL
-podman-compose up -d postgres
-# Of: podman compose up -d postgres
+Open **http://localhost:8080**
 
-# Start de applicatie
-mvn quarkus:dev
+### Configuration
+All settings have defaults that work out of the box. Override with environment variables:
 
-# Stop alles
-podman-compose down
-# Of: podman compose down
-```
-
-**Voordelen van Podman:**
-- ✅ Rootless containers (betere beveiliging)
-- ✅ Docker-compatibel (zelfde commando's)
-- ✅ Geen daemon vereist
-- ✅ Kubernetes YAML ondersteuning
-
-## 📖 Gebruikshandleiding
-
-### HTTP/HTTPS Mocking
-
-1. Ga naar de **Mock Endpoints** tab
-2. Klik op **+ Nieuwe Mock**
-3. Kies protocol **HTTP** of **HTTPS**
-4. Configureer je endpoint:
-   - **Method**: GET, POST, PUT, DELETE, etc.
-   - **Path**: `/api/users` (met regex support)
-   - **Responses**: Meerdere responses met matching criteria
-
-**Voorbeeld**: Mock een REST API
-```json
-{
-  "name": "User API",
-  "protocol": "HTTP",
-  "httpConfig": {
-    "method": "GET",
-    "path": "/api/users"
-  },
-  "responses": [
-    {
-      "responseStatusCode": 200,
-      "responseBody": "{\"users\": [{\"id\": 1, \"name\": \"John\"}]}",
-      "responseHeaders": {
-        "Content-Type": "application/json"
-      }
-    }
-  ]
-}
-```
-
-**Toegang**: `http://localhost:8080/mock/http/api/users`
-
-### SFTP Mocking
-
-Configureer een SFTP server voor file operations testing:
-
-```json
-{
-  "name": "SFTP File Server",
-  "protocol": "SFTP",
-  "sftpConfig": {
-    "port": 2222,
-    "operation": "UPLOAD",
-    "pathPattern": "/uploads/*",
-    "username": "testuser",
-    "password": "testpass"
-  }
-}
-```
-
-**Verbinden**: `sftp -P 2222 testuser@localhost`
-
-### SQL Database Mocking
-
-Test je database code met echte database containers:
-
-```json
-{
-  "name": "PostgreSQL Test DB",
-  "protocol": "SQL",
-  "sqlConfig": {
-    "databaseType": "POSTGRESQL",
-    "databaseName": "testdb",
-    "username": "testuser",
-    "password": "testpass",
-    "initScript": "CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(100)); INSERT INTO users (name) VALUES ('John Doe');"
-  }
-}
-```
-
-**JDBC URL** wordt gelogd in de console na het starten.
-
-### AMQP/RabbitMQ Mocking
-
-Mock message queues voor event-driven architectures:
-
-```json
-{
-  "name": "Order Queue",
-  "protocol": "AMQP",
-  "amqpConfig": {
-    "exchangeName": "orders",
-    "exchangeType": "topic",
-    "queueName": "order.created",
-    "routingKey": "order.#"
-  }
-}
-```
-
-## 🎨 Templates
-
-Gebruik voorgedefinieerde templates voor snelle setup:
-
-- **REST API** - Standard REST API endpoint
-- **GraphQL** - GraphQL endpoint
-- **OAuth2** - OAuth2 token endpoint
-- **Webhook** - Webhook receiver
-- **SFTP Server** - File server
-- **Message Queue** - AMQP queue
-- **SQL Database** - PostgreSQL database
-
-Ga naar de **Templates** tab en klik op een template om deze te gebruiken.
-
-## 🎬 Scenarios
-
-Maak sequenties van endpoint activaties voor complexe test flows:
-
-```json
-{
-  "name": "Database Migration Test",
-  "steps": [
-    {
-      "stepOrder": 0,
-      "action": "ENABLE",
-      "mockEndpoint": {"id": 1}
-    },
-    {
-      "stepOrder": 1,
-      "action": "DELAY",
-      "delayMs": 1000
-    },
-    {
-      "stepOrder": 2,
-      "action": "DISABLE",
-      "mockEndpoint": {"id": 1}
-    }
-  ]
-}
-```
-
-Voer scenarios uit via de API of web UI.
-
-## 📊 Metrics & Monitoring
-
-Monitor je endpoints real-time:
-
-- **Total Requests** - Totaal aantal requests
-- **Matched/Unmatched** - Success rate
-- **Last Request** - Laatste request timestamp
-- **Avg Response Time** - Gemiddelde response tijd
-
-**API Endpoint**: `GET /api/metrics`
-
-## 📥 Import/Export
-
-### Exporteren
-```bash
-# Alle endpoints
-curl http://localhost:8080/api/import-export/export > endpoints.json
-
-# Enkele endpoint
-curl http://localhost:8080/api/import-export/export/1 > endpoint.json
-```
-
-### Importeren
-```bash
-curl -X POST http://localhost:8080/api/import-export/import \
-  -H "Content-Type": application/json" \
-  -d @endpoints.json
-```
-
-## 🔗 Blocks
-
-Groupeer gerelateerde endpoints:
-
-1. Ga naar **Blocks** tab
-2. Maak een nieuwe block
-3. Selecteer endpoints
-4. Start/stop alle endpoints in een block tegelijk
-
-Perfect voor het beheren van complete test suites.
-
-## 🛠️ API Documentatie
-
-Volledige API documentatie is beschikbaar via:
-- **Swagger UI**: http://localhost:8080/swagger-ui
-- **OpenAPI Spec**: http://localhost:8080/openapi
-
-## 🏗️ Architectuur
-
-**Tech Stack:**
-- **Framework**: Quarkus 3.17.4
-- **Database**: PostgreSQL 16
-- **ORM**: Hibernate Panache
-- **Migrations**: Flyway
-- **Containers**: Testcontainers
-- **Message Broker**: RabbitMQ
-- **SFTP**: Apache SSHD
-
-**Project Structure:**
-```
-blockmock/
-├── src/main/java/nl/blockmock/
-│   ├── domain/        # JPA entities
-│   ├── resource/      # REST endpoints
-│   └── service/       # Business logic
-├── src/main/resources/
-│   ├── db/migration/  # Flyway migrations
-│   └── META-INF/resources/
-│       ├── css/       # Stylesheets
-│       └── js/        # JavaScript
-└── docker-compose.yml # PostgreSQL container
-```
-
-## 🔧 Configuratie
-
-Configuratie in `src/main/resources/application.properties`:
-
-```properties
-# HTTP Port
-quarkus.http.port=8080
-
-# Database
-quarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/blockmock
-quarkus.datasource.username=blockmock
-quarkus.datasource.password=blockmock
-
-# OpenAPI
-quarkus.swagger-ui.path=/swagger-ui
-```
-
-## 📝 Development
-
-```bash
-# Development mode (live reload)
-./mvnw quarkus:dev
-
-# Build
-./mvnw clean package
-
-# Run tests
-./mvnw test
-
-# Build container image (Docker)
-./mvnw package -Dquarkus.container-image.build=true
-
-# Build container image (Podman)
-./mvnw package -Dquarkus.container-image.build=true \
-  -Dquarkus.container-image.builder=podman
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🙏 Credits
-
-Gebouwd met:
-- [Quarkus](https://quarkus.io/)
-- [Testcontainers](https://www.testcontainers.org/)
-- [Apache SSHD](https://mina.apache.org/sshd-project/)
-- [RabbitMQ](https://www.rabbitmq.com/)
+| Variable | Default | Description |
+|---|---|---|
+| `BLOCKMOCK_DB_URL` | `jdbc:postgresql://localhost:5432/blockmock` | JDBC URL |
+| `BLOCKMOCK_DB_USER` | `blockmock` | Database user |
+| `BLOCKMOCK_DB_PASSWORD` | `blockmock` | Database password |
+| `BLOCKMOCK_PORT` | `8080` | HTTP port |
 
 ---
 
-**Happy Mocking!** 🎭
+## How it works
+
+### 1. Define mock endpoints
+Create HTTP endpoints that your application will call during tests. Each endpoint returns a configurable response.
+
+Incoming calls are intercepted at `/mock/<path>` — so an endpoint with path `/api/payment/charge` receives traffic at `http://localhost:8080/mock/api/payment/charge`.
+
+### 2. Group endpoints into Blocks
+A **Block** is a named group of endpoints. Blocks are enabled at the start of a test run (so only endpoints in the test get intercepted) and disabled when the run completes.
+
+### 3. Define Test Suites and Scenarios
+A **Test Suite** holds a set of Blocks and one or more **Scenarios**. Each Scenario defines:
+- **Expectations** — which endpoints should be called, how many times, and in what order
+- **Response Overrides** — force a specific mock response for one endpoint during this scenario (e.g. make the payment service return 402)
+- **Triggers** — an HTTP call or cron schedule that kicks off your application
+
+### 4. Run a scenario
+1. Click **▶ Run** on a scenario — BlockMock enables the blocks and starts recording
+2. Click **▶ Trigger** — BlockMock fires the trigger (calls your application)
+3. Click **✓ Complete** — BlockMock evaluates expectations and shows the result
+
+### 5. CI/CD
+Use the included `ci-test.sh` script to run a scenario from your pipeline:
+
+```bash
+./demo/order-service/ci-test.sh \
+  --suite "Order Flow Suite" \
+  --scenario "Happy Path" \
+  --url http://localhost:8080
+```
+
+Exits 0 on pass, 1 on failure. Writes JUnit XML to `ci-output/results.xml`.
+
+---
+
+## Demo: Order Service
+
+The `demo/order-service/` directory contains a complete working example with a Node.js order service and a BlockMock test setup.
+
+```bash
+# Start BlockMock + PostgreSQL
+docker compose up -d postgres
+java -jar blockmock-<version>.jar
+
+# Start the order service
+cd demo/order-service && npm install && node server.js
+
+# Set up test data in BlockMock (idempotent, --reset to start fresh)
+bash demo/order-service/setup-blockmock.sh
+
+# Run CI test
+bash demo/order-service/ci-test.sh \
+  --suite "Order Flow Suite" \
+  --scenario "Happy Path"
+```
+
+---
+
+## Building from source
+
+```bash
+# Build frontend first
+cd frontend && npm ci && npm run build && cd ..
+
+# Run in dev mode (live reload)
+mvn quarkus:dev
+
+# Build uber-jar for distribution
+mvn package -DskipTests -Dquarkus.package.type=uber-jar
+# Output: target/blockmock-<version>-runner.jar
+```
+
+---
+
+## API
+
+Full API docs at **http://localhost:8080/swagger-ui** when running.
+
+Key endpoints:
+- `POST /mock/**` — receives traffic from your application under test
+- `GET /api/test-suites` — list test suites
+- `POST /api/test-suites/{id}/scenarios/{sid}/runs` — start a run
+- `POST /api/triggers/{id}/fire` — fire a trigger
+- `POST /api/import-export/suites` — import a suite from JSON
+- `GET /api/dashboard` — dashboard stats
+
+---
+
+## License
+
+MIT

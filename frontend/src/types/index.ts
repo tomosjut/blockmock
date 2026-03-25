@@ -120,6 +120,55 @@ export interface TriggerConfig {
   updatedAt?: string
 }
 
+export interface DashboardScenarioSummary {
+  id: number
+  name: string
+  lastRunStatus?: string
+  lastRunAt?: string
+  activeRun: boolean
+  lastRunPassed: number
+  lastRunTotal: number
+}
+
+export interface DashboardSuiteSummary {
+  id: number
+  name: string
+  color?: string
+  scenarios: DashboardScenarioSummary[]
+}
+
+export interface DashboardRecentRun {
+  id: number
+  suiteId: number
+  suiteName: string
+  suiteColor?: string
+  scenarioId: number
+  scenarioName: string
+  status: string
+  startedAt?: string
+  completedAt?: string
+  passed: number
+  total: number
+}
+
+export interface DashboardRecentFire {
+  id: number
+  name: string
+  type: string
+  scenarioName?: string
+  firedAt?: string
+}
+
+export interface DashboardStats {
+  endpointCount: number
+  activeEndpointCount: number
+  matchedRequests: number
+  unmatchedRequests: number
+  suites: DashboardSuiteSummary[]
+  recentRuns: DashboardRecentRun[]
+  recentFires: DashboardRecentFire[]
+}
+
 export interface TriggerFireResult {
   responseStatus?: number
   responseBody?: string

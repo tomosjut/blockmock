@@ -1,5 +1,5 @@
 import { apiFetch, postJson, putJson, deleteReq } from './client'
-import type { TestSuite, TestScenario, TestRun } from '../types'
+import type { TestSuite, TestScenario, TestRun, DashboardStats } from '../types'
 
 const BASE = '/api/test-suites'
 const IE_BASE = '/api/import-export'
@@ -43,3 +43,5 @@ export async function exportSuite(id: number): Promise<{ blob: Blob; filename: s
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const importSuite = (data: unknown): Promise<any> => postJson(`${IE_BASE}/suites`, data)
+
+export const getDashboardStats = (): Promise<DashboardStats> => apiFetch('/api/dashboard')

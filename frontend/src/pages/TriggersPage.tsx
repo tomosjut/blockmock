@@ -11,8 +11,19 @@ const emptyForm = (): Partial<TriggerConfig> => ({
   httpUrl: '',
   httpMethod: 'POST',
   httpBody: '',
+  httpHeaders: undefined,
   enabled: true,
 })
+
+type HeaderRow = { key: string; value: string }
+
+const headersToRows = (h?: Record<string, string>): HeaderRow[] =>
+  Object.entries(h ?? {}).map(([key, value]) => ({ key, value }))
+
+const rowsToHeaders = (rows: HeaderRow[]): Record<string, string> | undefined => {
+  const filled = rows.filter(r => r.key.trim())
+  return filled.length > 0 ? Object.fromEntries(filled.map(r => [r.key, r.value])) : undefined
+}
 
 interface ScenarioOption {
   id: number
@@ -29,6 +40,8 @@ export default function TriggersPage() {
   const [editing, setEditing] = useState<TriggerConfig | null>(null)
   const [form, setForm] = useState<Partial<TriggerConfig>>(emptyForm())
   const [saving, setSaving] = useState(false)
+
+  const [httpHeaderRows, setHttpHeaderRows] = useState<HeaderRow[]>([])
 
   const [fireResult, setFireResult] = useState<{ trigger: TriggerConfig; result: TriggerFireResult } | null>(null)
   const [firing, setFiring] = useState<number | null>(null)
@@ -56,12 +69,14 @@ export default function TriggersPage() {
   function openCreate() {
     setEditing(null)
     setForm(emptyForm())
+    setHttpHeaderRows([])
     setShowModal(true)
   }
 
   function openEdit(t: TriggerConfig) {
     setEditing(t)
     setForm({ ...t, testScenario: t.testScenario })
+    setHttpHeaderRows(headersToRows(t.httpHeaders))
     setShowModal(true)
   }
 
@@ -71,6 +86,7 @@ export default function TriggersPage() {
       const payload = {
         ...form,
         testScenario: form.testScenario?.id ? { id: form.testScenario.id } : undefined,
+        httpHeaders: rowsToHeaders(httpHeaderRows),
       }
       if (editing?.id) {
         await updateTrigger(editing.id, payload)
@@ -290,6 +306,38 @@ export default function TriggersPage() {
                       rows={4}
                       placeholder={'{\n  "customerId": "cust-1",\n  "items": [{"sku": "BOOK-01", "qty": 2}],\n  "totalAmount": 29.99\n}'}
                     />
+                  </div>
+
+                  <div className="form-row">
+                    <label>Request Headers <span className="label-hint">(optional)</span></label>
+                    <div className="header-rows">
+                      {httpHeaderRows.map((row, i) => (
+                        <div key={i} className="header-row">
+                          <input
+                            type="text"
+                            placeholder="Header name"
+                            value={row.key}
+                            onChange={e => setHttpHeaderRows(rows => rows.map((r, j) => j === i ? { ...r, key: e.target.value } : r))}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Value"
+                            value={row.value}
+                            onChange={e => setHttpHeaderRows(rows => rows.map((r, j) => j === i ? { ...r, value: e.target.value } : r))}
+                          />
+                          <button
+                            type="button"
+                            className="btn-link danger"
+                            onClick={() => setHttpHeaderRows(rows => rows.filter((_, j) => j !== i))}
+                          >✕</button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => setHttpHeaderRows(rows => [...rows, { key: '', value: '' }])}
+                      >+ Add Header</button>
+                    </div>
                   </div>
                 </>
               )}

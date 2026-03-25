@@ -41,3 +41,4 @@ Thumbs.db
 *.swo
 *~
 demo/order-service/node_modules/
+demo/order-service/ci-output/

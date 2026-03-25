@@ -20,20 +20,19 @@ cd frontend && npm run build
 ## Flyway
 - Migraties in `src/main/resources/db/migration/`
 - Naamgeving: `V{n}__{omschrijving}.sql`
-- Huidige versie: **V20**
+- Huidige versie: **V1** (gesquasht — volgende migratie wordt V2)
 
 ## Import/export
 - Geen IDs in export-formaat — alles gematcht op natural keys:
   - `MockEndpoint`: `(httpMethod, httpPath)`
   - `Block`: `name`
   - `TestSuite`: `name` (UNIQUE constraint)
-  - `TriggerConfig`: `(testSuite, name)` (UNIQUE constraint)
+  - `TriggerConfig`: `(testScenario, name)` (UNIQUE constraint)
 
-## Architectuur — geplande richting
-Zie `NEXT_STEPS.md` voor de geplande `TestScenario`-refactor:
+## Architectuur
 - `TestSuite` bevat gedeelde blocks/mocks
-- `TestScenario` heeft eigen trigger + expectations
-- `TestRun` wordt per scenario
+- `TestScenario` heeft eigen expectations, triggers, runs en responseOverrides
+- `TestRun` is per scenario
 
 ## Mock path routing
 - `HttpMockResource` luistert op `@Path("/mock")`
