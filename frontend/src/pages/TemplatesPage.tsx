@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { getTemplates, type Template } from '../api/templates'
 import { createEndpoint } from '../api/endpoints'
+import { isHttpEndpoint } from '../types'
 import './TemplatesPage.css'
 
 const PROTOCOL_ICONS: Record<string, string> = {
   HTTP: '🌐',
+  AMQP: '⚡',
+  AMQPS: '⚡',
 }
 
 export default function TemplatesPage() {
@@ -67,10 +70,19 @@ export default function TemplatesPage() {
               <p className="template-desc">{t.description}</p>
 
               <div className="template-preview">
-                <span className={`method-badge method-${t.endpoint.httpMethod}`}>
-                  {t.endpoint.httpMethod}
-                </span>
-                <code className="template-path">{t.endpoint.httpPath}</code>
+                {isHttpEndpoint(t.endpoint) ? (
+                  <>
+                    <span className={`method-badge method-${t.endpoint.httpMethod}`}>
+                      {t.endpoint.httpMethod}
+                    </span>
+                    <code className="template-path">{t.endpoint.httpPath}</code>
+                  </>
+                ) : (
+                  <>
+                    <span className="method-badge method-amqp">AMQP</span>
+                    <code className="template-path">{t.endpoint.amqpAddress}</code>
+                  </>
+                )}
               </div>
 
               {t.endpoint.responses?.length > 0 && (

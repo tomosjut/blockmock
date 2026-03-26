@@ -6,9 +6,11 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import nl.blockmock.domain.AmqpTriggerConfig;
+import nl.blockmock.domain.CronTriggerConfig;
+import nl.blockmock.domain.HttpTriggerConfig;
 import nl.blockmock.domain.TestScenario;
 import nl.blockmock.domain.TriggerConfig;
-import nl.blockmock.domain.TriggerType;
 import org.jboss.logging.Logger;
 
 import java.net.URI;
@@ -27,6 +29,9 @@ public class TriggerService {
     @Inject
     Scheduler scheduler;
 
+    @Inject
+    AmqpConnectionService amqpConnectionService;
+
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
     void onStart(@Observes StartupEvent event) {
@@ -34,15 +39,13 @@ public class TriggerService {
     }
 
     private void scheduleAllCronTriggers() {
-        List<TriggerConfig> triggers = TriggerConfig.listAll();
-        for (TriggerConfig trigger : triggers) {
-            if (trigger.getType() == TriggerType.CRON && Boolean.TRUE.equals(trigger.getEnabled())) {
-                scheduleCronTrigger(trigger);
-            }
+        List<CronTriggerConfig> triggers = CronTriggerConfig.list("enabled", true);
+        for (CronTriggerConfig trigger : triggers) {
+            scheduleCronTrigger(trigger);
         }
     }
 
-    private void scheduleCronTrigger(TriggerConfig trigger) {
+    private void scheduleCronTrigger(CronTriggerConfig trigger) {
         String jobId = jobId(trigger.id);
         try {
             scheduler.newJob(jobId)
@@ -81,9 +84,10 @@ public class TriggerService {
             trigger.setTestScenario(TestScenario.findById(trigger.getTestScenario().id));
         }
         trigger.persist();
-        if (trigger.getType() == TriggerType.CRON && Boolean.TRUE.equals(trigger.getEnabled())
-                && trigger.getCronExpression() != null) {
-            scheduleCronTrigger(trigger);
+        if (trigger instanceof CronTriggerConfig cron
+                && Boolean.TRUE.equals(cron.getEnabled())
+                && cron.getCronExpression() != null) {
+            scheduleCronTrigger(cron);
         }
         return trigger;
     }
@@ -97,13 +101,7 @@ public class TriggerService {
 
         trigger.setName(updates.getName());
         trigger.setDescription(updates.getDescription());
-        trigger.setType(updates.getType());
         trigger.setEnabled(updates.getEnabled());
-        trigger.setHttpUrl(updates.getHttpUrl());
-        trigger.setHttpMethod(updates.getHttpMethod());
-        trigger.setHttpBody(updates.getHttpBody());
-        trigger.setHttpHeaders(updates.getHttpHeaders());
-        trigger.setCronExpression(updates.getCronExpression());
 
         if (updates.getTestScenario() != null && updates.getTestScenario().id != null) {
             trigger.setTestScenario(TestScenario.findById(updates.getTestScenario().id));
@@ -111,9 +109,24 @@ public class TriggerService {
             trigger.setTestScenario(null);
         }
 
-        if (trigger.getType() == TriggerType.CRON && Boolean.TRUE.equals(trigger.getEnabled())
-                && trigger.getCronExpression() != null) {
-            scheduleCronTrigger(trigger);
+        if (trigger instanceof HttpTriggerConfig http && updates instanceof HttpTriggerConfig httpU) {
+            http.setHttpUrl(httpU.getHttpUrl());
+            http.setHttpMethod(httpU.getHttpMethod());
+            http.setHttpBody(httpU.getHttpBody());
+            http.setHttpHeaders(httpU.getHttpHeaders());
+        } else if (trigger instanceof CronTriggerConfig cron && updates instanceof CronTriggerConfig cronU) {
+            cron.setCronExpression(cronU.getCronExpression());
+        } else if (trigger instanceof AmqpTriggerConfig amqp && updates instanceof AmqpTriggerConfig amqpU) {
+            amqp.setAmqpAddress(amqpU.getAmqpAddress());
+            amqp.setAmqpBody(amqpU.getAmqpBody());
+            amqp.setAmqpProperties(amqpU.getAmqpProperties());
+            amqp.setAmqpRoutingType(amqpU.getAmqpRoutingType() != null ? amqpU.getAmqpRoutingType() : "ANYCAST");
+        }
+
+        if (trigger instanceof CronTriggerConfig cron
+                && Boolean.TRUE.equals(cron.getEnabled())
+                && cron.getCronExpression() != null) {
+            scheduleCronTrigger(cron);
         }
         return trigger;
     }
@@ -133,24 +146,24 @@ public class TriggerService {
             throw new IllegalStateException("Trigger is disabled");
         }
 
-        // Execute HTTP call
         Integer responseStatus = null;
         String responseBody = null;
         String error = null;
+        String messageId = null;
 
-        if (trigger.getType() == TriggerType.HTTP && trigger.getHttpUrl() != null) {
+        if (trigger instanceof HttpTriggerConfig http && http.getHttpUrl() != null) {
             try {
                 HttpRequest.Builder builder = HttpRequest.newBuilder()
-                        .uri(URI.create(trigger.getHttpUrl()));
+                        .uri(URI.create(http.getHttpUrl()));
 
-                if (trigger.getHttpHeaders() != null) {
-                    for (Map.Entry<String, String> header : trigger.getHttpHeaders().entrySet()) {
+                if (http.getHttpHeaders() != null) {
+                    for (Map.Entry<String, String> header : http.getHttpHeaders().entrySet()) {
                         builder.header(header.getKey(), header.getValue());
                     }
                 }
 
-                String method = trigger.getHttpMethod() != null ? trigger.getHttpMethod().toUpperCase() : "POST";
-                String body = trigger.getHttpBody() != null ? trigger.getHttpBody() : "";
+                String method = http.getHttpMethod() != null ? http.getHttpMethod().toUpperCase() : "POST";
+                String body = http.getHttpBody() != null ? http.getHttpBody() : "";
 
                 if (method.equals("GET") || method.equals("DELETE")) {
                     builder.method(method, HttpRequest.BodyPublishers.noBody());
@@ -165,18 +178,38 @@ public class TriggerService {
                         HttpResponse.BodyHandlers.ofString());
                 responseStatus = response.statusCode();
                 responseBody = response.body();
-                LOG.infof("Trigger %s fired: %s %s -> %d", trigger.getName(), method, trigger.getHttpUrl(), responseStatus);
+                LOG.infof("Trigger %s fired: %s %s -> %d", trigger.getName(), method, http.getHttpUrl(), responseStatus);
             } catch (Exception e) {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
                 error = cause.getClass().getSimpleName() + ": " + (cause.getMessage() != null ? cause.getMessage() : e.getClass().getSimpleName());
                 LOG.warnf("Trigger %s HTTP call failed: %s", trigger.getName(), error);
             }
+        } else if (trigger instanceof AmqpTriggerConfig amqp) {
+            try {
+                messageId = amqpConnectionService.publish(
+                        amqp.getAmqpAddress(),
+                        amqp.getAmqpBody(),
+                        amqp.getAmqpProperties(),
+                        amqp.getAmqpRoutingType()
+                );
+                LOG.infof("Trigger %s fired AMQP message to: %s (id: %s)",
+                        trigger.getName(), amqp.getAmqpAddress(), messageId);
+            } catch (Exception e) {
+                error = e.getMessage();
+                LOG.warnf("Trigger %s AMQP publish failed: %s", trigger.getName(), error);
+            }
         }
 
         trigger.setLastFiredAt(LocalDateTime.now());
 
-        return new TriggerFireResult(responseStatus, responseBody, error);
+        return new TriggerFireResult(responseStatus, responseBody, error, messageId, trigger.getLastFiredAt());
     }
 
-    public record TriggerFireResult(Integer responseStatus, String responseBody, String error) {}
+    public record TriggerFireResult(
+            Integer responseStatus,
+            String responseBody,
+            String error,
+            String messageId,
+            LocalDateTime firedAt
+    ) {}
 }

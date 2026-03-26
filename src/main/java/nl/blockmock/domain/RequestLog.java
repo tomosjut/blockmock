@@ -63,6 +63,26 @@ public class RequestLog extends PanacheEntity {
     @Column(name = "response_delay_ms")
     private Integer responseDelayMs;
 
+    // AMQP-specific fields
+    @Column(name = "amqp_address", length = 500)
+    private String amqpAddress;
+
+    @Column(name = "amqp_subject", length = 500)
+    private String amqpSubject;
+
+    @Column(name = "amqp_message_id", length = 500)
+    private String amqpMessageId;
+
+    @Column(name = "amqp_correlation_id", length = 500)
+    private String amqpCorrelationId;
+
+    @Column(name = "amqp_reply_to", length = 500)
+    private String amqpReplyTo;
+
+    @Type(JsonBinaryType.class)
+    @Column(name = "amqp_properties", columnDefinition = "jsonb")
+    private Map<String, String> amqpProperties;
+
     // Metadata
     @Column(nullable = false)
     private Boolean matched = false;

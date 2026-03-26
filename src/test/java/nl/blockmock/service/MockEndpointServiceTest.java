@@ -4,6 +4,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import nl.blockmock.domain.*;
+import nl.blockmock.domain.HttpMockEndpoint;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ class MockEndpointServiceTest {
 
     @Test
     void testCreateHttpEndpoint() {
-        MockEndpoint endpoint = new MockEndpoint();
+        HttpMockEndpoint endpoint = new HttpMockEndpoint();
         endpoint.setName("Test HTTP Endpoint");
         endpoint.setDescription("Test Description");
         endpoint.setProtocol(ProtocolType.HTTP);
@@ -53,8 +54,9 @@ class MockEndpointServiceTest {
         assertNotNull(created.id);
         assertEquals("Test HTTP Endpoint", created.getName());
         assertEquals(ProtocolType.HTTP, created.getProtocol());
-        assertEquals(HttpMethod.GET, created.getHttpMethod());
-        assertEquals("/test/api", created.getHttpPath());
+        assertInstanceOf(HttpMockEndpoint.class, created);
+        assertEquals(HttpMethod.GET, ((HttpMockEndpoint) created).getHttpMethod());
+        assertEquals("/test/api", ((HttpMockEndpoint) created).getHttpPath());
         assertTrue(created.getEnabled());
     }
 
@@ -149,7 +151,7 @@ class MockEndpointServiceTest {
 
     @Test
     void testCreateEndpointWithResponses() {
-        MockEndpoint endpoint = new MockEndpoint();
+        HttpMockEndpoint endpoint = new HttpMockEndpoint();
         endpoint.setName("Endpoint with Responses");
         endpoint.setProtocol(ProtocolType.HTTP);
         endpoint.setPattern(PatternType.REQUEST_REPLY);
@@ -172,8 +174,8 @@ class MockEndpointServiceTest {
         assertEquals(200, created.getResponses().get(0).getResponseStatusCode());
     }
 
-    private MockEndpoint createTestEndpoint() {
-        MockEndpoint endpoint = new MockEndpoint();
+    private HttpMockEndpoint createTestEndpoint() {
+        HttpMockEndpoint endpoint = new HttpMockEndpoint();
         endpoint.setName("Test Endpoint");
         endpoint.setDescription("Test Description");
         endpoint.setProtocol(ProtocolType.HTTP);

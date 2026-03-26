@@ -110,7 +110,7 @@ export default function LogsPage() {
       ) : filtered.length === 0 ? (
         <div className="empty-state">
           <p>{filter !== 'all' ? `No ${filter} requests.` : 'No logs yet.'}</p>
-          <p className="muted">Requests to /mock/* will appear here.</p>
+          <p className="muted">Requests to /mock/* or AMQP messages will appear here.</p>
         </div>
       ) : (
         <>
@@ -118,8 +118,9 @@ export default function LogsPage() {
             <thead>
               <tr>
                 <th style={{ width: 140 }}>Time</th>
+                <th style={{ width: 60 }}>Proto</th>
                 <th style={{ width: 70 }}>Method</th>
-                <th>Path</th>
+                <th>Path / Address</th>
                 <th style={{ width: 70 }}>Status</th>
                 <th style={{ width: 80 }}>Match</th>
                 <th style={{ width: 80 }}>Delay</th>
@@ -133,8 +134,15 @@ export default function LogsPage() {
                     onClick={() => setExpanded(expanded === log.id ? null : log.id!)}
                   >
                     <td className="log-time">{formatTime(log.receivedAt)}</td>
-                    <td><span className={`method-badge method-${log.requestMethod}`}>{log.requestMethod}</span></td>
-                    <td className="log-path">{log.requestPath}</td>
+                    <td><span className={`method-badge method-${log.protocol.toLowerCase()}`}>{log.protocol}</span></td>
+                    <td>
+                      {log.protocol === 'HTTP'
+                        ? <span className={`method-badge method-${log.requestMethod}`}>{log.requestMethod}</span>
+                        : <span className="muted">—</span>}
+                    </td>
+                    <td className="log-path">
+                      {log.protocol === 'HTTP' ? log.requestPath : log.amqpAddress}
+                    </td>
                     <td>
                       {log.responseStatusCode
                         ? <span className={`status-code s${Math.floor(log.responseStatusCode / 100)}xx`}>{log.responseStatusCode}</span>
@@ -149,7 +157,7 @@ export default function LogsPage() {
                   </tr>
                   {expanded === log.id && (
                     <tr className="log-detail-row">
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <LogDetail log={log} />
                       </td>
                     </tr>
@@ -174,55 +182,124 @@ export default function LogsPage() {
 }
 
 function LogDetail({ log }: { log: RequestLog }) {
+  const isAmqp = log.protocol === 'AMQP' || log.protocol === 'AMQPS'
+
   return (
     <div className="log-detail">
-      <div className="log-detail-cols">
-        <div className="log-detail-col">
-          <div className="log-detail-section">
-            <h4>Request</h4>
-            {log.requestHeaders && Object.keys(log.requestHeaders).length > 0 && (
-              <div className="detail-block">
-                <span className="detail-label">Headers</span>
-                <pre>{formatHeaders(log.requestHeaders)}</pre>
-              </div>
-            )}
-            {log.requestQueryParams && Object.keys(log.requestQueryParams).length > 0 && (
-              <div className="detail-block">
-                <span className="detail-label">Query params</span>
-                <pre>{formatHeaders(log.requestQueryParams)}</pre>
-              </div>
-            )}
-            {log.requestBody ? (
-              <div className="detail-block">
-                <span className="detail-label">Body</span>
-                <pre>{tryPrettyJson(log.requestBody)}</pre>
-              </div>
-            ) : (
-              <span className="muted">No body</span>
-            )}
+      {isAmqp ? (
+        <div className="log-detail-cols">
+          <div className="log-detail-col">
+            <div className="log-detail-section">
+              <h4>AMQP Message</h4>
+              {log.amqpAddress && (
+                <div className="detail-block">
+                  <span className="detail-label">Address</span>
+                  <pre>{log.amqpAddress}</pre>
+                </div>
+              )}
+              {log.amqpSubject && (
+                <div className="detail-block">
+                  <span className="detail-label">Subject</span>
+                  <pre>{log.amqpSubject}</pre>
+                </div>
+              )}
+              {log.amqpMessageId && (
+                <div className="detail-block">
+                  <span className="detail-label">Message ID</span>
+                  <pre>{log.amqpMessageId}</pre>
+                </div>
+              )}
+              {log.amqpCorrelationId && (
+                <div className="detail-block">
+                  <span className="detail-label">Correlation ID</span>
+                  <pre>{log.amqpCorrelationId}</pre>
+                </div>
+              )}
+              {log.amqpReplyTo && (
+                <div className="detail-block">
+                  <span className="detail-label">Reply-To</span>
+                  <pre>{log.amqpReplyTo}</pre>
+                </div>
+              )}
+              {log.amqpProperties && Object.keys(log.amqpProperties).length > 0 && (
+                <div className="detail-block">
+                  <span className="detail-label">Application Properties</span>
+                  <pre>{formatHeaders(log.amqpProperties)}</pre>
+                </div>
+              )}
+              {log.requestBody ? (
+                <div className="detail-block">
+                  <span className="detail-label">Body</span>
+                  <pre>{tryPrettyJson(log.requestBody)}</pre>
+                </div>
+              ) : (
+                <span className="muted">No body</span>
+              )}
+            </div>
+          </div>
+          <div className="log-detail-col">
+            <div className="log-detail-section">
+              <h4>Response</h4>
+              {log.responseBody ? (
+                <div className="detail-block">
+                  <span className="detail-label">Body</span>
+                  <pre>{tryPrettyJson(log.responseBody)}</pre>
+                </div>
+              ) : (
+                <span className="muted">No response body</span>
+              )}
+            </div>
           </div>
         </div>
+      ) : (
+        <div className="log-detail-cols">
+          <div className="log-detail-col">
+            <div className="log-detail-section">
+              <h4>Request</h4>
+              {log.requestHeaders && Object.keys(log.requestHeaders).length > 0 && (
+                <div className="detail-block">
+                  <span className="detail-label">Headers</span>
+                  <pre>{formatHeaders(log.requestHeaders)}</pre>
+                </div>
+              )}
+              {log.requestQueryParams && Object.keys(log.requestQueryParams).length > 0 && (
+                <div className="detail-block">
+                  <span className="detail-label">Query params</span>
+                  <pre>{formatHeaders(log.requestQueryParams)}</pre>
+                </div>
+              )}
+              {log.requestBody ? (
+                <div className="detail-block">
+                  <span className="detail-label">Body</span>
+                  <pre>{tryPrettyJson(log.requestBody)}</pre>
+                </div>
+              ) : (
+                <span className="muted">No body</span>
+              )}
+            </div>
+          </div>
 
-        <div className="log-detail-col">
-          <div className="log-detail-section">
-            <h4>Response</h4>
-            {log.responseHeaders && Object.keys(log.responseHeaders).length > 0 && (
-              <div className="detail-block">
-                <span className="detail-label">Headers</span>
-                <pre>{formatHeaders(log.responseHeaders)}</pre>
-              </div>
-            )}
-            {log.responseBody ? (
-              <div className="detail-block">
-                <span className="detail-label">Body</span>
-                <pre>{tryPrettyJson(log.responseBody)}</pre>
-              </div>
-            ) : (
-              <span className="muted">No body</span>
-            )}
+          <div className="log-detail-col">
+            <div className="log-detail-section">
+              <h4>Response</h4>
+              {log.responseHeaders && Object.keys(log.responseHeaders).length > 0 && (
+                <div className="detail-block">
+                  <span className="detail-label">Headers</span>
+                  <pre>{formatHeaders(log.responseHeaders)}</pre>
+                </div>
+              )}
+              {log.responseBody ? (
+                <div className="detail-block">
+                  <span className="detail-label">Body</span>
+                  <pre>{tryPrettyJson(log.responseBody)}</pre>
+                </div>
+              ) : (
+                <span className="muted">No body</span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {log.clientIp && (
         <div className="detail-meta">

@@ -34,6 +34,43 @@ cd frontend && npm run build
 - `TestScenario` heeft eigen expectations, triggers, runs en responseOverrides
 - `TestRun` is per scenario
 
+## TypeScript discriminated unions
+
+Volg hetzelfde patroon als de Java inheritance: gebruik discriminated unions voor polymorfe entiteiten.
+
+```typescript
+// 1. Base interface (niet exporteren)
+interface FooBase {
+  id?: number
+  name: string
+  type: FooType   // discriminant
+}
+
+// 2. Concrete interfaces met literal discriminant
+export interface HttpFoo extends FooBase { type: 'HTTP'; httpUrl: string }
+export interface AmqpFoo extends FooBase { type: 'AMQP'; amqpAddress: string }
+
+// 3. Union type
+export type Foo = HttpFoo | AmqpFoo
+
+// 4. Type guards
+export function isHttpFoo(f: Foo): f is HttpFoo { return f.type === 'HTTP' }
+```
+
+**Gebruik in componenten:**
+- Display code: narrowing via `if (ep.protocol === 'HTTP')` of type guard
+- Form state: gebruik een platte `FooForm` interface (alle velden optioneel), niet de union
+
+**Form interface pattern:**
+```typescript
+/** Flat form type — all protocol-specific fields optional */
+export interface FooForm {
+  type?: FooType
+  httpUrl?: string   // HTTP-specific
+  amqpAddress?: string  // AMQP-specific
+}
+```
+
 ## Mock path routing
 - `HttpMockResource` luistert op `@Path("/mock")`
 - Inkomend pad `/mock/api/foo` → wordt gematcht op endpoint met path `/api/foo`

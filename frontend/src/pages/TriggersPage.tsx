@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import type { TriggerConfig, TriggerFireResult, TriggerType, TestScenario } from '../types'
+import type { TriggerConfig, TriggerConfigForm, TriggerFireResult, TriggerType, AmqpRoutingType, TestScenario } from '../types'
+import { isHttpTrigger, isCronTrigger, isAmqpTrigger } from '../types'
 import { getTriggers, createTrigger, updateTrigger, deleteTrigger, fireTrigger } from '../api/triggers'
 import { getTestSuites, getScenarios } from '../api/testsuites'
 import './TriggersPage.css'
 
-const emptyForm = (): Partial<TriggerConfig> => ({
+const emptyForm = (): TriggerConfigForm => ({
   name: '',
   description: '',
   type: 'HTTP',
@@ -38,7 +39,7 @@ export default function TriggersPage() {
 
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState<TriggerConfig | null>(null)
-  const [form, setForm] = useState<Partial<TriggerConfig>>(emptyForm())
+  const [form, setForm] = useState<TriggerConfigForm>(emptyForm())
   const [saving, setSaving] = useState(false)
 
   const [httpHeaderRows, setHttpHeaderRows] = useState<HeaderRow[]>([])
@@ -75,18 +76,41 @@ export default function TriggersPage() {
 
   function openEdit(t: TriggerConfig) {
     setEditing(t)
-    setForm({ ...t, testScenario: t.testScenario })
-    setHttpHeaderRows(headersToRows(t.httpHeaders))
+    const base: TriggerConfigForm = {
+      name: t.name,
+      description: t.description,
+      type: t.type,
+      testScenario: t.testScenario,
+      enabled: t.enabled,
+      lastFiredAt: t.lastFiredAt,
+    }
+    if (isHttpTrigger(t)) {
+      base.httpUrl = t.httpUrl
+      base.httpMethod = t.httpMethod
+      base.httpBody = t.httpBody
+      base.httpHeaders = t.httpHeaders
+      setHttpHeaderRows(headersToRows(t.httpHeaders))
+    } else if (isCronTrigger(t)) {
+      base.cronExpression = t.cronExpression
+      setHttpHeaderRows([])
+    } else if (isAmqpTrigger(t)) {
+      base.amqpAddress = t.amqpAddress
+      base.amqpBody = t.amqpBody
+      base.amqpProperties = t.amqpProperties
+      base.amqpRoutingType = t.amqpRoutingType
+      setHttpHeaderRows([])
+    }
+    setForm(base)
     setShowModal(true)
   }
 
   async function save() {
     setSaving(true)
     try {
-      const payload = {
+      const payload: TriggerConfigForm = {
         ...form,
         testScenario: form.testScenario?.id ? { id: form.testScenario.id } : undefined,
-        httpHeaders: rowsToHeaders(httpHeaderRows),
+        httpHeaders: form.type === 'HTTP' ? rowsToHeaders(httpHeaderRows) : undefined,
       }
       if (editing?.id) {
         await updateTrigger(editing.id, payload)
@@ -126,6 +150,30 @@ export default function TriggersPage() {
     }
   }
 
+  function triggerDetail(t: TriggerConfig): React.ReactNode {
+    if (isHttpTrigger(t) && t.httpUrl) {
+      return (
+        <code className="trigger-url">
+          <span className={`method-badge method-${t.httpMethod}`}>{t.httpMethod}</span>
+          {' '}{t.httpUrl}
+        </code>
+      )
+    }
+    if (isCronTrigger(t) && t.cronExpression) {
+      return <code className="trigger-cron">{t.cronExpression}</code>
+    }
+    if (isAmqpTrigger(t) && t.amqpAddress) {
+      return <code className="trigger-url">→ {t.amqpAddress}</code>
+    }
+    return null
+  }
+
+  function fireResultSummary(result: TriggerFireResult, type: string): string {
+    if (result.error) return `Error: ${result.error}`
+    if (type === 'AMQP') return `AMQP message sent${result.messageId ? ` (id: ${result.messageId})` : ''}`
+    return `HTTP ${result.responseStatus}`
+  }
+
   return (
     <div className="page">
       <div className="page-header">
@@ -134,7 +182,7 @@ export default function TriggersPage() {
       </div>
 
       <p className="muted triggers-intro">
-        Triggers kick off an integration test run. An HTTP trigger makes an outbound call to your application; a Cron trigger fires on a schedule.
+        Triggers kick off an integration test run. An HTTP trigger makes an outbound call to your application; a Cron trigger fires on a schedule; an AMQP trigger publishes a message to the broker.
       </p>
 
       {error && (
@@ -148,9 +196,7 @@ export default function TriggersPage() {
         <div className={`alert ${fireResult.result.error ? 'alert-error' : 'alert-success'}`}>
           <div>
             <strong>{fireResult.trigger.name}</strong> fired —{' '}
-            {fireResult.result.error
-              ? `Error: ${fireResult.result.error}`
-              : `HTTP ${fireResult.result.responseStatus}`}
+            {fireResultSummary(fireResult.result, fireResult.trigger.type)}
           </div>
           <button onClick={() => setFireResult(null)}>✕</button>
         </div>
@@ -173,15 +219,7 @@ export default function TriggersPage() {
                   <span className="trigger-name">{t.name}</span>
                   {t.description && <span className="trigger-desc">{t.description}</span>}
                   <div className="trigger-detail">
-                    {t.type === 'HTTP' && t.httpUrl && (
-                      <code className="trigger-url">
-                        <span className={`method-badge method-${t.httpMethod}`}>{t.httpMethod}</span>
-                        {' '}{t.httpUrl}
-                      </code>
-                    )}
-                    {t.type === 'CRON' && t.cronExpression && (
-                      <code className="trigger-cron">{t.cronExpression}</code>
-                    )}
+                    {triggerDetail(t)}
                     {t.testScenario && (
                       <span className="trigger-suite">
                         → {scenarioOptions.find(o => o.id === t.testScenario!.id)?.label ?? `Scenario #${t.testScenario.id}`}
@@ -237,9 +275,11 @@ export default function TriggersPage() {
                     <select
                       value={form.type ?? 'HTTP'}
                       onChange={e => setForm(f => ({ ...f, type: e.target.value as TriggerType }))}
+                      disabled={!!editing}
                     >
                       <option value="HTTP">HTTP</option>
                       <option value="CRON">CRON</option>
+                      <option value="AMQP">AMQP</option>
                     </select>
                   </div>
                 </div>
@@ -352,6 +392,45 @@ export default function TriggersPage() {
                     placeholder="0 0/5 * * * ?"
                   />
                 </div>
+              )}
+
+              {form.type === 'AMQP' && (
+                <>
+                  <div className="form-row-inline">
+                    <div style={{ flex: 1 }}>
+                      <div className="form-row">
+                        <label>Address</label>
+                        <input
+                          type="text"
+                          value={form.amqpAddress ?? ''}
+                          onChange={e => setForm(f => ({ ...f, amqpAddress: e.target.value }))}
+                          placeholder="e.g. orders.commands"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="form-row">
+                        <label>Routing type</label>
+                        <select
+                          value={form.amqpRoutingType ?? 'ANYCAST'}
+                          onChange={e => setForm(f => ({ ...f, amqpRoutingType: e.target.value as AmqpRoutingType }))}
+                        >
+                          <option value="ANYCAST">Anycast (queue)</option>
+                          <option value="MULTICAST">Multicast (topic)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <label>Message Body <span className="label-hint">(optional)</span></label>
+                    <textarea
+                      value={form.amqpBody ?? ''}
+                      onChange={e => setForm(f => ({ ...f, amqpBody: e.target.value }))}
+                      rows={4}
+                      placeholder={'{\n  "customerId": "cust-1",\n  "action": "place-order"\n}'}
+                    />
+                  </div>
+                </>
               )}
 
               <div className="form-row form-row-checkbox">

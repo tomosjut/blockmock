@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -18,5 +16,47 @@ services:
       timeout: 5s
       retries: 5
 
+  artemis:
+    image: apache/activemq-artemis:2.37.0
+    container_name: blockmock-artemis
+    ports:
+      - "5672:5672"   # AMQP
+      - "5671:5671"   # AMQPS
+      - "8161:8161"   # Artemis web console
+    environment:
+      ARTEMIS_USER: artemis
+      ARTEMIS_PASSWORD: artemis
+    volumes:
+      - artemis-data:/var/lib/artemis-instance
+
+  # ── Demo apps (optional) ────────────────────────────────────────────────────
+  # Start with: docker-compose --profile demo up -d
+  # Requires BlockMock running on the host (mvn quarkus:dev)
+
+  demo-order-service:
+    build: ./demo/order-service
+    container_name: blockmock-demo-http
+    profiles: [demo]
+    environment:
+      BLOCKMOCK_URL: http://host.docker.internal:8080
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux: route to Docker host
+
+  demo-order-service-amqp:
+    build: ./demo/order-service-amqp
+    container_name: blockmock-demo-amqp
+    profiles: [demo]
+    environment:
+      AMQP_HOST: blockmock-artemis
+      AMQP_PORT: 5672
+      AMQP_USER: artemis
+      AMQP_PASSWORD: artemis
+    depends_on:
+      - artemis
+
 volumes:
   postgres-data:
+  artemis-data:

@@ -2,6 +2,8 @@ package nl.blockmock.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -13,9 +15,17 @@ import java.util.List;
 
 @Entity
 @Table(name = "mock_endpoint")
+@Inheritance(strategy = InheritanceType.JOINED)
+@DiscriminatorColumn(name = "dtype", discriminatorType = DiscriminatorType.STRING, length = 50)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "protocol", include = JsonTypeInfo.As.EXISTING_PROPERTY, visible = true)
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = HttpMockEndpoint.class, name = "HTTP"),
+    @JsonSubTypes.Type(value = AmqpMockEndpoint.class, name = "AMQP"),
+    @JsonSubTypes.Type(value = AmqpMockEndpoint.class, name = "AMQPS"),
+})
 @Getter
 @Setter
-public class MockEndpoint extends PanacheEntity {
+public abstract class MockEndpoint extends PanacheEntity {
 
     @Column(nullable = false)
     private String name;
@@ -33,17 +43,6 @@ public class MockEndpoint extends PanacheEntity {
 
     @Column(nullable = false)
     private Boolean enabled = true;
-
-    // HTTP-specific config (http_ prefix signals protocol ownership)
-    @Enumerated(EnumType.STRING)
-    @Column(name = "http_method", length = 50)
-    private HttpMethod httpMethod;
-
-    @Column(name = "http_path", length = 1000)
-    private String httpPath;
-
-    @Column(name = "http_path_regex")
-    private Boolean httpPathRegex = false;
 
     // Metrics/Statistics
     @Column(name = "total_requests")

@@ -3,6 +3,7 @@ package nl.blockmock.service;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import nl.blockmock.domain.HttpMockEndpoint;
 import nl.blockmock.domain.MockEndpoint;
 import nl.blockmock.domain.MockResponse;
 import nl.blockmock.domain.ProtocolType;
@@ -12,7 +13,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.regex.Pattern;
 
 @ApplicationScoped
@@ -31,24 +31,21 @@ public class HttpMockService {
                                          String body,
                                          String clientIp) {
 
-        // Find matching endpoint
         List<MockEndpoint> endpoints = mockEndpointService.findEnabledByProtocol(ProtocolType.HTTP);
 
-        MockEndpoint matchedEndpoint = null;
+        HttpMockEndpoint matchedEndpoint = null;
         MockResponse matchedResponse = null;
 
         for (MockEndpoint endpoint : endpoints) {
-            if (matchesEndpoint(endpoint, method, path)) {
-                // Find matching response within this endpoint
+            if (endpoint instanceof HttpMockEndpoint http && matchesEndpoint(http, method, path)) {
                 matchedResponse = findMatchingResponse(endpoint, headers, queryParams, body);
                 if (matchedResponse != null) {
-                    matchedEndpoint = endpoint;
+                    matchedEndpoint = http;
                     break;
                 }
             }
         }
 
-        // Log the request
         RequestLog log = createRequestLog(matchedEndpoint, matchedResponse,
                                          method, path, headers, queryParams, body, clientIp);
 
@@ -70,29 +67,25 @@ public class HttpMockService {
             );
         }
 
-        // No match found - return 404
         log.setMatched(false);
         log.setResponseStatusCode(404);
         log.setResponseBody("No mock found for: " + method + " " + path);
 
         requestLogService.log(log);
-        // No endpoint matched — nothing to update metrics on
 
         return new HttpMockResponse(404, new HashMap<>(),
                                    "No mock found for: " + method + " " + path, 0);
     }
 
-    private boolean matchesEndpoint(MockEndpoint endpoint, String method, String path) {
+    private boolean matchesEndpoint(HttpMockEndpoint endpoint, String method, String path) {
         if (endpoint.getHttpMethod() == null || endpoint.getHttpPath() == null) {
             return false;
         }
 
-        // Check HTTP method
         if (!endpoint.getHttpMethod().name().equalsIgnoreCase(method)) {
             return false;
         }
 
-        // Check path
         if (Boolean.TRUE.equals(endpoint.getHttpPathRegex())) {
             Pattern pattern = Pattern.compile(endpoint.getHttpPath());
             return pattern.matcher(path).matches();
@@ -105,12 +98,10 @@ public class HttpMockService {
                                               Map<String, String> headers,
                                               Map<String, String> queryParams,
                                               String body) {
-        // Forced response takes absolute priority (set by scenario run)
         if (endpoint.getForcedResponse() != null) {
             return endpoint.getForcedResponse();
         }
 
-        // Get responses sorted by priority (highest first)
         List<MockResponse> responses = endpoint.getResponses().stream()
                 .sorted((r1, r2) -> Integer.compare(r2.getPriority(), r1.getPriority()))
                 .toList();
@@ -128,7 +119,6 @@ public class HttpMockService {
                                     Map<String, String> headers,
                                     Map<String, String> queryParams,
                                     String body) {
-        // Check headers - all specified headers must match
         if (response.getMatchHeaders() != null && !response.getMatchHeaders().isEmpty()) {
             for (Map.Entry<String, String> entry : response.getMatchHeaders().entrySet()) {
                 String headerValue = headers.get(entry.getKey().toLowerCase());
@@ -138,7 +128,6 @@ public class HttpMockService {
             }
         }
 
-        // Check query params - all specified params must match
         if (response.getMatchQueryParams() != null && !response.getMatchQueryParams().isEmpty()) {
             for (Map.Entry<String, String> entry : response.getMatchQueryParams().entrySet()) {
                 String paramValue = queryParams.get(entry.getKey());
@@ -148,7 +137,6 @@ public class HttpMockService {
             }
         }
 
-        // Check body matching - supports regex or exact match
         if (response.getMatchBody() != null && !response.getMatchBody().isEmpty()) {
             if (body == null) {
                 return false;
@@ -156,7 +144,6 @@ public class HttpMockService {
 
             String matchPattern = response.getMatchBody();
 
-            // Check if it's a regex pattern (starts and ends with /)
             if (matchPattern.startsWith("/") && matchPattern.endsWith("/") && matchPattern.length() > 2) {
                 String regex = matchPattern.substring(1, matchPattern.length() - 1);
                 try {
@@ -164,13 +151,11 @@ public class HttpMockService {
                         return false;
                     }
                 } catch (Exception e) {
-                    // Invalid regex, treat as exact match
                     if (!body.equals(matchPattern)) {
                         return false;
                     }
                 }
             } else {
-                // Exact match or contains
                 if (!body.contains(matchPattern)) {
                     return false;
                 }

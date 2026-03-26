@@ -4,6 +4,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.transaction.Transactional;
 import nl.blockmock.domain.*;
+import nl.blockmock.domain.HttpMockEndpoint;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -188,7 +189,7 @@ class MockEndpointResourceTest {
 
     @Transactional
     Long createTestEndpoint(String name) {
-        MockEndpoint endpoint = new MockEndpoint();
+        HttpMockEndpoint endpoint = new HttpMockEndpoint();
         endpoint.setName(name);
         endpoint.setDescription("Test Description");
         endpoint.setProtocol(ProtocolType.HTTP);

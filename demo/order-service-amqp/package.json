@@ -1,0 +1,12 @@
+{
+  "name": "blockmock-demo-order-service-amqp",
+  "version": "1.0.0",
+  "description": "Demo AMQP app for testing BlockMock — consumes order.incoming, publishes order.confirmed",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "rhea-promise": "^3.0.0"
+  }
+}

@@ -26,7 +26,6 @@ public class TestSuiteExportService {
         TestSuite suite = TestSuite.findById(suiteId);
         if (suite == null) throw new IllegalArgumentException("TestSuite not found: " + suiteId);
 
-        // Collect all endpoints referenced by this suite (via blocks + scenario expectations)
         Map<Long, MockEndpoint> endpointMap = new LinkedHashMap<>();
         for (Block block : suite.getBlocks()) {
             for (MockEndpoint ep : blockService.getBlockEndpoints(block.id)) {
@@ -47,7 +46,15 @@ public class TestSuiteExportService {
         List<TestSuiteExport.BlockExport> blocks = suite.getBlocks().stream()
                 .map(block -> {
                     List<String> epKeys = blockService.getBlockEndpoints(block.id).stream()
-                            .map(ep -> ep.getHttpMethod().name() + ":" + ep.getHttpPath())
+                            .map(ep -> {
+                                if (ep instanceof HttpMockEndpoint http) {
+                                    return "HTTP:" + http.getHttpMethod().name() + ":" + http.getHttpPath();
+                                } else if (ep instanceof AmqpMockEndpoint amqp) {
+                                    return "AMQP:" + amqp.getAmqpAddress();
+                                }
+                                return null;
+                            })
+                            .filter(java.util.Objects::nonNull)
                             .toList();
                     return new TestSuiteExport.BlockExport(block.getName(), block.getDescription(), block.getColor(), epKeys);
                 }).toList();
@@ -55,30 +62,47 @@ public class TestSuiteExportService {
         List<TestSuiteExport.ScenarioExport> scenarios = suite.getScenarios().stream()
                 .map(scenario -> {
                     List<TestSuiteExport.ExpectationExport> expectations = scenario.getExpectations().stream()
-                            .map(exp -> new TestSuiteExport.ExpectationExport(
-                                    exp.getName(),
-                                    exp.getMockEndpoint() != null ? exp.getMockEndpoint().getHttpMethod().name() : null,
-                                    exp.getMockEndpoint() != null ? exp.getMockEndpoint().getHttpPath() : null,
-                                    exp.getMinCallCount(), exp.getMaxCallCount(),
-                                    exp.getRequiredBodyContains(), exp.getRequiredHeaders(),
-                                    exp.getExpectationOrder()
-                            )).toList();
+                            .map(exp -> {
+                                MockEndpoint ep = exp.getMockEndpoint();
+                                String epMethod  = (ep instanceof HttpMockEndpoint http) ? http.getHttpMethod().name() : null;
+                                String epPath    = (ep instanceof HttpMockEndpoint http) ? http.getHttpPath() : null;
+                                String epAddress = (ep instanceof AmqpMockEndpoint amqp) ? amqp.getAmqpAddress() : null;
+                                return new TestSuiteExport.ExpectationExport(
+                                        exp.getName(), epMethod, epPath, epAddress,
+                                        exp.getMinCallCount(), exp.getMaxCallCount(),
+                                        exp.getRequiredBodyContains(), exp.getRequiredHeaders(),
+                                        exp.getExpectationOrder()
+                                );
+                            }).toList();
 
                     List<TestSuiteExport.TriggerExport> triggers =
                             TriggerConfig.<TriggerConfig>list("testScenario", scenario).stream()
-                            .map(t -> new TestSuiteExport.TriggerExport(
-                                    t.getName(), t.getDescription(), t.getType().name(),
-                                    t.getHttpUrl(), t.getHttpMethod(), t.getHttpBody(),
-                                    t.getHttpHeaders(), t.getCronExpression(), t.getEnabled()
-                            )).toList();
+                            .map(t -> {
+                                String httpUrl          = t instanceof HttpTriggerConfig h ? h.getHttpUrl() : null;
+                                String httpMethod       = t instanceof HttpTriggerConfig h ? h.getHttpMethod() : null;
+                                String httpBody         = t instanceof HttpTriggerConfig h ? h.getHttpBody() : null;
+                                Map<String, String> httpHeaders = t instanceof HttpTriggerConfig h ? h.getHttpHeaders() : null;
+                                String cronExpr         = t instanceof CronTriggerConfig c ? c.getCronExpression() : null;
+                                String amqpAddress      = t instanceof AmqpTriggerConfig a ? a.getAmqpAddress() : null;
+                                String amqpBody         = t instanceof AmqpTriggerConfig a ? a.getAmqpBody() : null;
+                                Map<String, String> amqpProperties = t instanceof AmqpTriggerConfig a ? a.getAmqpProperties() : null;
+                                String amqpRoutingType  = t instanceof AmqpTriggerConfig a ? a.getAmqpRoutingType() : null;
+                                return new TestSuiteExport.TriggerExport(
+                                        t.getName(), t.getDescription(), t.getType().name(),
+                                        httpUrl, httpMethod, httpBody, httpHeaders,
+                                        cronExpr, amqpAddress, amqpBody, amqpProperties, amqpRoutingType, t.getEnabled()
+                                );
+                            }).toList();
 
                     List<TestSuiteExport.OverrideExport> overrides = scenario.getResponseOverrides().stream()
-                            .filter(o -> o.getMockEndpoint() != null && o.getMockResponse() != null)
-                            .map(o -> new TestSuiteExport.OverrideExport(
-                                    o.getMockEndpoint().getHttpMethod().name(),
-                                    o.getMockEndpoint().getHttpPath(),
-                                    o.getMockResponse().getName()
-                            )).toList();
+                            .filter(o -> o.getMockEndpoint() instanceof HttpMockEndpoint && o.getMockResponse() != null)
+                            .map(o -> {
+                                HttpMockEndpoint http = (HttpMockEndpoint) o.getMockEndpoint();
+                                return new TestSuiteExport.OverrideExport(
+                                        http.getHttpMethod().name(), http.getHttpPath(),
+                                        o.getMockResponse().getName()
+                                );
+                            }).toList();
 
                     return new TestSuiteExport.ScenarioExport(
                             scenario.getName(), scenario.getDescription(), expectations, triggers, overrides);
@@ -102,12 +126,32 @@ public class TestSuiteExportService {
                         r.getMatchBody(), r.getMatchHeaders(), r.getMatchQueryParams(),
                         r.getResponseHeaders()
                 )).toList();
+
+        if (ep instanceof HttpMockEndpoint http) {
+            return new TestSuiteExport.EndpointExport(
+                    http.getName(), http.getDescription(),
+                    "HTTP",
+                    http.getHttpMethod().name(), http.getHttpPath(),
+                    Boolean.TRUE.equals(http.getHttpPathRegex()),
+                    null, null, null,
+                    http.getPattern().name(), responses
+            );
+        }
+        if (ep instanceof AmqpMockEndpoint amqp) {
+            return new TestSuiteExport.EndpointExport(
+                    amqp.getName(), amqp.getDescription(),
+                    "AMQP",
+                    null, null, false,
+                    amqp.getAmqpAddress(),
+                    amqp.getAmqpPattern(),
+                    amqp.getAmqpRoutingType(),
+                    amqp.getPattern().name(), responses
+            );
+        }
         return new TestSuiteExport.EndpointExport(
                 ep.getName(), ep.getDescription(),
-                ep.getHttpMethod().name(), ep.getHttpPath(),
-                Boolean.TRUE.equals(ep.getHttpPathRegex()),
-                ep.getPattern().name(),
-                responses
+                null, null, null, false, null, null, null,
+                ep.getPattern().name(), responses
         );
     }
 
@@ -122,8 +166,8 @@ public class TestSuiteExportService {
         // 1. Endpoints
         Map<String, MockEndpoint> endpointByKey = new HashMap<>();
         for (TestSuiteExport.EndpointExport epExport : export.endpoints()) {
-            String key = epExport.httpMethod() + ":" + epExport.httpPath();
-            MockEndpoint existing = findEndpointByKey(epExport.httpMethod(), epExport.httpPath());
+            String key = endpointKey(epExport);
+            MockEndpoint existing = findEndpointByExport(epExport);
             if (existing != null) {
                 endpointByKey.put(key, existing);
                 result.endpointsLinked++;
@@ -149,7 +193,9 @@ public class TestSuiteExportService {
                 result.blocksLinked++;
             }
             for (String epKey : blockExport.endpointKeys()) {
-                MockEndpoint ep = endpointByKey.get(epKey);
+                // Support both old format (METHOD:path) and new format (PROTOCOL:METHOD:path or AMQP:address)
+                String normalizedKey = epKey.startsWith("HTTP:") || epKey.startsWith("AMQP:") ? epKey : "HTTP:" + epKey;
+                MockEndpoint ep = endpointByKey.get(normalizedKey);
                 if (ep != null) blockService.addEndpointToBlock(block.id, ep.id);
             }
             blockByName.put(blockExport.name(), block);
@@ -186,7 +232,9 @@ public class TestSuiteExportService {
                 exp.setExpectationOrder(expExport.expectationOrder());
                 exp.setTestScenario(scenario);
                 if (expExport.endpointMethod() != null && expExport.endpointPath() != null) {
-                    exp.setMockEndpoint(endpointByKey.get(expExport.endpointMethod() + ":" + expExport.endpointPath()));
+                    exp.setMockEndpoint(endpointByKey.get("HTTP:" + expExport.endpointMethod() + ":" + expExport.endpointPath()));
+                } else if (expExport.endpointAmqpAddress() != null) {
+                    exp.setMockEndpoint(endpointByKey.get("AMQP:" + expExport.endpointAmqpAddress()));
                 }
                 scenario.getExpectations().add(exp);
             }
@@ -206,15 +254,34 @@ public class TestSuiteExportService {
             for (TestSuiteExport.TriggerExport tExport : scenarioExport.triggers()) {
                 long existing = TriggerConfig.count("testScenario = ?1 and name = ?2", scenario, tExport.name());
                 if (existing > 0) { result.triggersSkipped++; continue; }
-                TriggerConfig trigger = new TriggerConfig();
+
+                TriggerType type = TriggerType.valueOf(tExport.type());
+                TriggerConfig trigger = switch (type) {
+                    case HTTP -> {
+                        HttpTriggerConfig http = new HttpTriggerConfig();
+                        http.setHttpUrl(tExport.httpUrl());
+                        http.setHttpMethod(tExport.httpMethod());
+                        http.setHttpBody(tExport.httpBody());
+                        http.setHttpHeaders(tExport.httpHeaders());
+                        yield http;
+                    }
+                    case CRON -> {
+                        CronTriggerConfig cron = new CronTriggerConfig();
+                        cron.setCronExpression(tExport.cronExpression());
+                        yield cron;
+                    }
+                    case AMQP -> {
+                        AmqpTriggerConfig amqp = new AmqpTriggerConfig();
+                        amqp.setAmqpAddress(tExport.amqpAddress());
+                        amqp.setAmqpBody(tExport.amqpBody());
+                        amqp.setAmqpProperties(tExport.amqpProperties());
+                        amqp.setAmqpRoutingType(tExport.amqpRoutingType() != null ? tExport.amqpRoutingType() : "ANYCAST");
+                        yield amqp;
+                    }
+                };
                 trigger.setName(tExport.name());
                 trigger.setDescription(tExport.description());
-                trigger.setType(TriggerType.valueOf(tExport.type()));
-                trigger.setHttpUrl(tExport.httpUrl());
-                trigger.setHttpMethod(tExport.httpMethod());
-                trigger.setHttpBody(tExport.httpBody());
-                trigger.setHttpHeaders(tExport.httpHeaders());
-                trigger.setCronExpression(tExport.cronExpression());
+                trigger.setType(type);
                 trigger.setEnabled(tExport.enabled() != null ? tExport.enabled() : true);
                 trigger.setTestScenario(scenario);
                 trigger.persist();
@@ -222,7 +289,7 @@ public class TestSuiteExportService {
             }
 
             for (TestSuiteExport.OverrideExport oExport : scenarioExport.responseOverrides()) {
-                MockEndpoint ep = findEndpointByKey(oExport.endpointMethod(), oExport.endpointPath());
+                MockEndpoint ep = findHttpEndpointByKey(oExport.endpointMethod(), oExport.endpointPath());
                 if (ep == null) continue;
                 MockResponse resp = ep.getResponses().stream()
                         .filter(r -> oExport.responseName().equals(r.getName()))
@@ -241,22 +308,53 @@ public class TestSuiteExportService {
         return result;
     }
 
-    private MockEndpoint findEndpointByKey(String method, String path) {
-        return MockEndpoint.find("httpMethod = ?1 and httpPath = ?2",
+    private String endpointKey(TestSuiteExport.EndpointExport ep) {
+        if ("AMQP".equals(ep.protocol()) || "AMQPS".equals(ep.protocol())) {
+            return "AMQP:" + ep.amqpAddress();
+        }
+        return "HTTP:" + ep.httpMethod() + ":" + ep.httpPath();
+    }
+
+    private MockEndpoint findEndpointByExport(TestSuiteExport.EndpointExport ep) {
+        if ("AMQP".equals(ep.protocol()) || "AMQPS".equals(ep.protocol())) {
+            return AmqpMockEndpoint.find("amqpAddress = ?1", ep.amqpAddress()).firstResult();
+        }
+        return findHttpEndpointByKey(ep.httpMethod(), ep.httpPath());
+    }
+
+    private MockEndpoint findHttpEndpointByKey(String method, String path) {
+        return HttpMockEndpoint.find("httpMethod = ?1 and httpPath = ?2",
                 HttpMethod.valueOf(method), path).firstResult();
     }
 
     private MockEndpoint createEndpoint(TestSuiteExport.EndpointExport epExport) {
-        MockEndpoint ep = new MockEndpoint();
+        PatternType pattern = PatternType.valueOf(epExport.pattern() != null ? epExport.pattern() : "REQUEST_REPLY");
+        List<TestSuiteExport.ResponseExport> responseExports = epExport.responses() != null ? epExport.responses() : List.of();
+
+        if ("AMQP".equals(epExport.protocol()) || "AMQPS".equals(epExport.protocol())) {
+            AmqpMockEndpoint ep = new AmqpMockEndpoint();
+            ep.setName(epExport.name());
+            ep.setDescription(epExport.description());
+            ep.setProtocol(ProtocolType.AMQP);
+            ep.setPattern(pattern);
+            ep.setEnabled(true);
+            ep.setAmqpAddress(epExport.amqpAddress());
+            ep.setAmqpPattern(epExport.amqpPattern());
+            ep.setAmqpRoutingType(epExport.amqpRoutingType() != null ? epExport.amqpRoutingType() : "ANYCAST");
+            ep.persist();
+            return ep;
+        }
+
+        HttpMockEndpoint ep = new HttpMockEndpoint();
         ep.setName(epExport.name());
         ep.setDescription(epExport.description());
         ep.setProtocol(ProtocolType.HTTP);
-        ep.setPattern(PatternType.valueOf(epExport.pattern() != null ? epExport.pattern() : "REQUEST_REPLY"));
+        ep.setPattern(pattern);
         ep.setEnabled(true);
         ep.setHttpMethod(HttpMethod.valueOf(epExport.httpMethod()));
         ep.setHttpPath(epExport.httpPath());
         ep.setHttpPathRegex(epExport.httpPathRegex());
-        for (TestSuiteExport.ResponseExport rExport : epExport.responses()) {
+        for (TestSuiteExport.ResponseExport rExport : responseExports) {
             MockResponse response = new MockResponse();
             response.setName(rExport.name());
             response.setPriority(rExport.priority() != null ? rExport.priority() : 0);
@@ -289,7 +387,9 @@ public class TestSuiteExportService {
 
         public record EndpointExport(
                 String name, String description,
+                String protocol,
                 String httpMethod, String httpPath, boolean httpPathRegex,
+                String amqpAddress, String amqpPattern, String amqpRoutingType,
                 String pattern,
                 List<ResponseExport> responses
         ) {}
@@ -317,6 +417,7 @@ public class TestSuiteExportService {
         public record ExpectationExport(
                 String name,
                 String endpointMethod, String endpointPath,
+                String endpointAmqpAddress,
                 Integer minCallCount, Integer maxCallCount,
                 String requiredBodyContains, Map<String, String> requiredHeaders,
                 Integer expectationOrder
@@ -326,7 +427,11 @@ public class TestSuiteExportService {
                 String name, String description, String type,
                 String httpUrl, String httpMethod, String httpBody,
                 Map<String, String> httpHeaders,
-                String cronExpression, Boolean enabled
+                String cronExpression,
+                String amqpAddress, String amqpBody,
+                Map<String, String> amqpProperties,
+                String amqpRoutingType,
+                Boolean enabled
         ) {}
     }
 

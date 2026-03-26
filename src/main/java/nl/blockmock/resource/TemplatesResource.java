@@ -3,6 +3,7 @@ package nl.blockmock.resource;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import nl.blockmock.domain.HttpMethod;
+import nl.blockmock.domain.HttpMockEndpoint;
 import nl.blockmock.domain.MockEndpoint;
 import nl.blockmock.domain.MockResponse;
 import nl.blockmock.domain.PatternType;
@@ -67,8 +68,8 @@ public class TemplatesResource {
         return template;
     }
 
-    private MockEndpoint createRestApiEndpoint() {
-        MockEndpoint endpoint = new MockEndpoint();
+    private HttpMockEndpoint createRestApiEndpoint() {
+        HttpMockEndpoint endpoint = new HttpMockEndpoint();
         endpoint.setName("REST API Mock");
         endpoint.setDescription("Standard REST API with CRUD operations");
         endpoint.setProtocol(ProtocolType.HTTP);
@@ -89,8 +90,8 @@ public class TemplatesResource {
         return endpoint;
     }
 
-    private MockEndpoint createGraphQLEndpoint() {
-        MockEndpoint endpoint = new MockEndpoint();
+    private HttpMockEndpoint createGraphQLEndpoint() {
+        HttpMockEndpoint endpoint = new HttpMockEndpoint();
         endpoint.setName("GraphQL API Mock");
         endpoint.setDescription("GraphQL endpoint with query support");
         endpoint.setProtocol(ProtocolType.HTTP);
@@ -110,8 +111,8 @@ public class TemplatesResource {
         return endpoint;
     }
 
-    private MockEndpoint createOAuth2Endpoint() {
-        MockEndpoint endpoint = new MockEndpoint();
+    private HttpMockEndpoint createOAuth2Endpoint() {
+        HttpMockEndpoint endpoint = new HttpMockEndpoint();
         endpoint.setName("OAuth2 Token Endpoint");
         endpoint.setDescription("OAuth2 token endpoint for authentication testing");
         endpoint.setProtocol(ProtocolType.HTTP);
@@ -131,8 +132,8 @@ public class TemplatesResource {
         return endpoint;
     }
 
-    private MockEndpoint createWebhookEndpoint() {
-        MockEndpoint endpoint = new MockEndpoint();
+    private HttpMockEndpoint createWebhookEndpoint() {
+        HttpMockEndpoint endpoint = new HttpMockEndpoint();
         endpoint.setName("Webhook Receiver");
         endpoint.setDescription("Receives and logs webhook events");
         endpoint.setProtocol(ProtocolType.HTTP);

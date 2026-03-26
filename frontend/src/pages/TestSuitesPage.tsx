@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import type { TestSuite, TestScenario, TestExpectation, ScenarioResponseOverride, TestRun, TestExpectationResult, MockEndpoint, Block, TriggerConfig } from '../types'
+import { isHttpEndpoint } from '../types'
 import {
   getTestSuites, createTestSuite, updateTestSuite, deleteTestSuite,
   getScenarios, createScenario, updateScenario, deleteScenario,
@@ -12,6 +13,11 @@ import { getTriggers, fireTrigger } from '../api/triggers'
 import './TestSuitesPage.css'
 
 const COLORS = ['#667eea', '#cba6f7', '#89b4fa', '#a6e3a1', '#f9e2af', '#fab387', '#f38ba8', '#74c7ec']
+
+function endpointLabel(ep: MockEndpoint): string {
+  if (isHttpEndpoint(ep)) return `${ep.httpMethod} ${ep.httpPath} (${ep.name})`
+  return `AMQP ${ep.amqpAddress} (${ep.name})`
+}
 
 const emptyExpectation = (): TestExpectation => ({
   name: '',
@@ -605,16 +611,19 @@ export default function TestSuitesPage() {
                             onChange={e => {
                               const ep = allEndpoints.find(ep => ep.id === Number(e.target.value))
                               updateExpectation(i, {
-                                mockEndpoint: ep
-                                  ? { id: ep.id!, name: ep.name, httpMethod: ep.httpMethod, httpPath: ep.httpPath }
-                                  : undefined,
+                                mockEndpoint: ep ? {
+                                  id: ep.id!,
+                                  name: ep.name,
+                                  httpMethod: isHttpEndpoint(ep) ? ep.httpMethod : undefined,
+                                  httpPath: isHttpEndpoint(ep) ? ep.httpPath : undefined,
+                                } : undefined,
                               })
                             }}
                           >
                             <option value="">— select —</option>
                             {allEndpoints.map(ep => (
                               <option key={ep.id} value={ep.id}>
-                                {ep.httpMethod} {ep.httpPath} ({ep.name})
+                                {endpointLabel(ep)}
                               </option>
                             ))}
                           </select>
@@ -687,7 +696,12 @@ export default function TestSuitesPage() {
                               onChange={e => {
                                 const ep = allEndpoints.find(ep => ep.id === Number(e.target.value))
                                 updateOverride(i, {
-                                  mockEndpoint: ep ? { id: ep.id!, name: ep.name, httpMethod: ep.httpMethod, httpPath: ep.httpPath } : undefined,
+                                  mockEndpoint: ep ? {
+                                    id: ep.id!,
+                                    name: ep.name,
+                                    httpMethod: isHttpEndpoint(ep) ? ep.httpMethod : undefined,
+                                    httpPath: isHttpEndpoint(ep) ? ep.httpPath : undefined,
+                                  } : undefined,
                                   mockResponse: undefined,
                                 })
                               }}
@@ -695,7 +709,7 @@ export default function TestSuitesPage() {
                               <option value="">— select endpoint —</option>
                               {allEndpoints.map(ep => (
                                 <option key={ep.id} value={ep.id}>
-                                  {ep.httpMethod} {ep.httpPath} ({ep.name})
+                                  {endpointLabel(ep)}
                                 </option>
                               ))}
                             </select>

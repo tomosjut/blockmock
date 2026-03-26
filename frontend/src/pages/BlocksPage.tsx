@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Block, MockEndpoint } from '../types'
+import { isHttpEndpoint } from '../types'
 import {
   getBlocks,
   createBlock,
@@ -284,8 +285,10 @@ export default function BlocksPage() {
                       <ul className="endpoint-list">
                         {blockEndpoints.map(ep => (
                           <li key={ep.id} className="endpoint-list-item">
-                            <span className={`method-badge method-${ep.httpMethod}`}>{ep.httpMethod}</span>
-                            <span className="ep-path">{ep.httpPath}</span>
+                            {isHttpEndpoint(ep)
+                              ? <span className={`method-badge method-${ep.httpMethod}`}>{ep.httpMethod}</span>
+                              : <span className="method-badge method-amqp">AMQP</span>}
+                            <span className="ep-path">{isHttpEndpoint(ep) ? ep.httpPath : ep.amqpAddress}</span>
                             <span className="ep-label">{ep.name}</span>
                             <button className="btn-link danger" onClick={() => handleRemoveEndpoint(ep.id!)}>Remove</button>
                           </li>
@@ -300,8 +303,10 @@ export default function BlocksPage() {
                       <ul className="endpoint-list">
                         {availableEndpoints.map(ep => (
                           <li key={ep.id} className="endpoint-list-item">
-                            <span className={`method-badge method-${ep.httpMethod}`}>{ep.httpMethod}</span>
-                            <span className="ep-path">{ep.httpPath}</span>
+                            {isHttpEndpoint(ep)
+                              ? <span className={`method-badge method-${ep.httpMethod}`}>{ep.httpMethod}</span>
+                              : <span className="method-badge method-amqp">AMQP</span>}
+                            <span className="ep-path">{isHttpEndpoint(ep) ? ep.httpPath : ep.amqpAddress}</span>
                             <span className="ep-label">{ep.name}</span>
                             <button className="btn-link" onClick={() => handleAddEndpoint(ep.id!)}>+ Add</button>
                           </li>

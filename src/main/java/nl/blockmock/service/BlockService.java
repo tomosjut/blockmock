@@ -3,6 +3,7 @@ package nl.blockmock.service;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import nl.blockmock.domain.AmqpMockEndpoint;
 import nl.blockmock.domain.Block;
 import nl.blockmock.domain.MockEndpoint;
 
@@ -15,6 +16,9 @@ public class BlockService {
 
     @Inject
     MockEndpointService mockEndpointService;
+
+    @Inject
+    AmqpConnectionService amqpConnectionService;
 
     @Transactional
     public Block create(Block block) {
@@ -83,10 +87,13 @@ public class BlockService {
             throw new IllegalArgumentException("Block not found with id: " + blockId);
         }
 
-        // Enable all endpoints in this block
         for (MockEndpoint endpoint : block.getEndpoints()) {
             endpoint.setEnabled(true);
             endpoint.persist();
+
+            if (endpoint instanceof AmqpMockEndpoint amqp && isConsumerPattern(amqp)) {
+                amqpConnectionService.startConsumer(amqp);
+            }
         }
     }
 
@@ -97,11 +104,19 @@ public class BlockService {
             throw new IllegalArgumentException("Block not found with id: " + blockId);
         }
 
-        // Disable all endpoints in this block
         for (MockEndpoint endpoint : block.getEndpoints()) {
             endpoint.setEnabled(false);
             endpoint.persist();
+
+            if (endpoint instanceof AmqpMockEndpoint amqp && isConsumerPattern(amqp)) {
+                amqpConnectionService.stopConsumer(amqp);
+            }
         }
+    }
+
+    private boolean isConsumerPattern(AmqpMockEndpoint endpoint) {
+        String pattern = endpoint.getAmqpPattern();
+        return "RECEIVE".equals(pattern) || "REQUEST_REPLY".equals(pattern);
     }
 
     public Set<MockEndpoint> getBlockEndpoints(Long blockId) {

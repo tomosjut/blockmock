@@ -1,21 +1,28 @@
 package nl.blockmock.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.Type;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Entity
 @Table(name = "trigger_config")
+@Inheritance(strategy = InheritanceType.JOINED)
+@DiscriminatorColumn(name = "dtype", discriminatorType = DiscriminatorType.STRING, length = 50)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", include = JsonTypeInfo.As.EXISTING_PROPERTY, visible = true)
+@JsonSubTypes({
+    @JsonSubTypes.Type(value = HttpTriggerConfig.class, name = "HTTP"),
+    @JsonSubTypes.Type(value = CronTriggerConfig.class, name = "CRON"),
+    @JsonSubTypes.Type(value = AmqpTriggerConfig.class, name = "AMQP"),
+})
 @Getter
 @Setter
-public class TriggerConfig extends PanacheEntity {
+public abstract class TriggerConfig extends PanacheEntity {
 
     @Column(nullable = false)
     private String name;
@@ -31,24 +38,6 @@ public class TriggerConfig extends PanacheEntity {
     @ManyToOne
     @JoinColumn(name = "test_scenario_id")
     private TestScenario testScenario;
-
-    // HTTP trigger fields
-    @Column(name = "http_url", length = 2000)
-    private String httpUrl;
-
-    @Column(name = "http_method", length = 20)
-    private String httpMethod = "POST";
-
-    @Column(name = "http_body", columnDefinition = "TEXT")
-    private String httpBody;
-
-    @Type(JsonBinaryType.class)
-    @Column(name = "http_headers", columnDefinition = "jsonb")
-    private Map<String, String> httpHeaders;
-
-    // Cron trigger fields
-    @Column(name = "cron_expression", length = 100)
-    private String cronExpression;
 
     @Column(nullable = false)
     private Boolean enabled = true;

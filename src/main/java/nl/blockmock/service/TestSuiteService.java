@@ -308,9 +308,13 @@ public class TestSuiteService {
         }
         if (exp.getRequiredHeaders() != null && !exp.getRequiredHeaders().isEmpty()) {
             logs = logs.stream().filter(l -> {
-                if (l.getRequestHeaders() == null) return false;
+                // HTTP: match on request headers; AMQP: match on application properties
+                Map<String, String> fields = l.getRequestHeaders() != null
+                        ? l.getRequestHeaders()
+                        : l.getAmqpProperties();
+                if (fields == null) return false;
                 for (var e : exp.getRequiredHeaders().entrySet()) {
-                    String v = l.getRequestHeaders().get(e.getKey());
+                    String v = fields.get(e.getKey());
                     if (v == null || !v.equals(e.getValue())) return false;
                 }
                 return true;
