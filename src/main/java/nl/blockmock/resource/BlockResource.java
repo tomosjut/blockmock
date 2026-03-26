@@ -11,6 +11,7 @@ import nl.blockmock.service.BlockService;
 import java.util.List;
 import java.util.Set;
 
+/** REST API for block CRUD, endpoint association, and start/stop lifecycle. ({@code /api/blocks}) */
 @Path("/api/blocks")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)

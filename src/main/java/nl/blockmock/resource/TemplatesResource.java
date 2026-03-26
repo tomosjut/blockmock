@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/** REST API providing read-only pre-configured endpoint templates (REST API, GraphQL, OAuth2, Webhook). ({@code /api/templates}) */
 @Path("/api/templates")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)

@@ -7,6 +7,7 @@ import nl.blockmock.domain.*;
 import java.util.List;
 import java.util.Optional;
 
+/** CRUD and lifecycle management for mock endpoints and their responses. */
 @ApplicationScoped
 public class MockEndpointService {
 

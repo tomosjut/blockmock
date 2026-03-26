@@ -10,6 +10,10 @@ import java.util.Set;
 import java.time.LocalDateTime;
 import java.util.*;
 
+/**
+ * Orchestrates test suite and scenario management, including run lifecycle, expectation
+ * evaluation, response overrides, and JUnit XML export.
+ */
 @ApplicationScoped
 public class TestSuiteService {
 
@@ -156,6 +160,11 @@ public class TestSuiteService {
     // Runs
     // -------------------------------------------------------------------------
 
+    /**
+     * Starts a test run for the given scenario. Enables all blocks in the suite,
+     * clears any existing forced responses, and applies this scenario's response overrides.
+     * Returns a {@link TestRun} in RUNNING state.
+     */
     @Transactional
     public TestRun startRun(Long suiteId, Long scenarioId) {
         TestScenario scenario = findScenario(suiteId, scenarioId);
@@ -191,6 +200,11 @@ public class TestSuiteService {
         return run;
     }
 
+    /**
+     * Completes a RUNNING test run: evaluates all expectations against collected request logs,
+     * checks sequence order constraints, clears response overrides, and stops blocks if no
+     * other run is still active. Sets status to COMPLETED or FAILED.
+     */
     @Transactional
     public TestRun completeRun(Long suiteId, Long scenarioId, Long runId) {
         TestRun run = TestRun.findById(runId);
@@ -294,6 +308,11 @@ public class TestSuiteService {
     // Helpers
     // -------------------------------------------------------------------------
 
+    /**
+     * Fetches request logs for the expectation's endpoint within the run window,
+     * then filters by {@code requiredBodyContains} and {@code requiredHeaders}
+     * (matched against HTTP request headers or AMQP application properties).
+     */
     private List<RequestLog> getMatchingLogs(TestExpectation exp, LocalDateTime start, LocalDateTime end) {
         if (exp.getMockEndpoint() == null) return List.of();
         List<RequestLog> logs = RequestLog.list(
@@ -323,6 +342,10 @@ public class TestSuiteService {
         return logs;
     }
 
+    /**
+     * Evaluates a single expectation against pre-filtered logs (no DB calls).
+     * Checks {@code minCallCount} and {@code maxCallCount}; sequence order is checked separately.
+     */
     private TestExpectationResult evaluateExpectation(TestExpectation exp, List<RequestLog> logs) {
         TestExpectationResult result = new TestExpectationResult();
         result.setTestExpectation(exp);
@@ -348,6 +371,12 @@ public class TestSuiteService {
         return result;
     }
 
+    /**
+     * Validates ordering constraints among expectations that have {@code expectationOrder} set.
+     * Expectations with the same order value form a group; the earliest first-call time in each group
+     * must be after the latest first-call time of the preceding group.
+     * Violations mark the affected results as failed and mutate {@code resultsByExpId} in place.
+     */
     private void checkSequenceOrder(List<TestExpectation> expectations,
             Map<Long, List<RequestLog>> logsByExpId,
             Map<Long, TestExpectationResult> resultsByExpId) {

@@ -9,6 +9,7 @@ import nl.blockmock.service.TriggerService;
 
 import java.util.List;
 
+/** REST API for trigger CRUD and manual fire. ({@code /api/triggers}) */
 @Path("/api/triggers")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)

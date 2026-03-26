@@ -11,6 +11,7 @@ import nl.blockmock.service.MockEndpointService;
 
 import java.util.List;
 
+/** REST API for mock endpoint CRUD, response management, and enable/disable toggling. ({@code /api/endpoints}) */
 @Path("/api/endpoints")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)

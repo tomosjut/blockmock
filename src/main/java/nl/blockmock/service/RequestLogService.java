@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/** Persists and queries request logs for both HTTP and AMQP traffic. */
 @ApplicationScoped
 public class RequestLogService {
 

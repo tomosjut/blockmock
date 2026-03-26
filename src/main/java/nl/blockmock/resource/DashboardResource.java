@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/** REST API aggregating dashboard statistics: endpoint counts, recent runs, and recent trigger fires. ({@code /api/dashboard}) */
 @Path("/api/dashboard")
 @Produces(MediaType.APPLICATION_JSON)
 public class DashboardResource {

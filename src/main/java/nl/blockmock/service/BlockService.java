@@ -11,6 +11,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * CRUD and lifecycle management for blocks.
+ * A block groups mock endpoints together; starting/stopping a block enables or disables
+ * all its endpoints and activates or deactivates AMQP consumers where applicable.
+ */
 @ApplicationScoped
 public class BlockService {
 
@@ -80,6 +85,10 @@ public class BlockService {
         block.persist();
     }
 
+    /**
+     * Enables all endpoints in the block. For AMQP endpoints with pattern RECEIVE or
+     * REQUEST_REPLY, also starts an AMQP consumer on the broker. Idempotent if already running.
+     */
     @Transactional
     public void startBlock(Long blockId) {
         Block block = Block.findById(blockId);
@@ -97,6 +106,10 @@ public class BlockService {
         }
     }
 
+    /**
+     * Disables all endpoints in the block and closes any open AMQP consumers.
+     * Called automatically by {@link TestSuiteService} when no other run is still active.
+     */
     @Transactional
     public void stopBlock(Long blockId) {
         Block block = Block.findById(blockId);

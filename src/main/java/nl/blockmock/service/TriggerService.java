@@ -21,6 +21,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * CRUD, scheduling, and execution of triggers. Cron triggers are registered with the
+ * Quarkus scheduler on create/update and unregistered on delete or disable.
+ * HTTP, CRON, and AMQP trigger types are each executed differently via {@link #fire}.
+ */
 @ApplicationScoped
 public class TriggerService {
 
@@ -138,6 +143,13 @@ public class TriggerService {
         if (trigger != null) trigger.delete();
     }
 
+    /**
+     * Fires a trigger immediately. HTTP triggers make a synchronous outbound HTTP call;
+     * AMQP triggers publish a message to the configured address; CRON triggers are not
+     * fired via this method. Updates {@code lastFiredAt} regardless of outcome.
+     *
+     * @throws IllegalStateException if the trigger is disabled
+     */
     @Transactional
     public TriggerFireResult fire(Long id) {
         TriggerConfig trigger = TriggerConfig.findById(id);

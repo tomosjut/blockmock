@@ -17,6 +17,13 @@ cd frontend && npm run build
 - Wanneer een child-entiteit geserialiseerd wordt maar de parent niet volledig nodig is: gebruik `@JsonIgnoreProperties` op het parent-veld
 - Sequenties: `CREATE SEQUENCE IF NOT EXISTS FooEntity_SEQ START WITH 1 INCREMENT BY 50`
 
+## Javadoc
+- **Services**: altijd class-level Javadoc; method-level op publieke methoden met niet-triviale logica, side effects of belangrijke constraints
+- **Resources**: class-level Javadoc met REST-pad en korte omschrijving; geen method-level (HTTP-methode + pad zijn documentatie genoeg)
+- **Abstracte klassen**: class-level + contract van abstracte methoden
+- **Entities en enums**: alleen als de naam onvoldoende dekt
+- **Stijl**: functioneel — wat doet het + relevante constraints/side effects. Geen "this method"-frasen, geen herhalingen van de signatuur
+
 ## Flyway
 - Migraties in `src/main/resources/db/migration/`
 - Naamgeving: `V{n}__{omschrijving}.sql`

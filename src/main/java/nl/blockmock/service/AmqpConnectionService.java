@@ -21,6 +21,11 @@ import org.jboss.logging.Logger;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Manages the AMQP client connection to the external broker (Artemis).
+ * Handles consumer lifecycle (start/stop per endpoint) and outbound message publishing.
+ * If the broker is unavailable at startup, a warning is logged and AMQP endpoints stay inactive.
+ */
 @ApplicationScoped
 public class AmqpConnectionService {
 

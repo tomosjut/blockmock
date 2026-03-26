@@ -15,6 +15,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+/**
+ * Matches incoming HTTP requests against enabled endpoints, selects a response,
+ * logs the interaction, and updates endpoint metrics.
+ * Unmatched requests return HTTP 404 and are logged as unmatched.
+ */
 @ApplicationScoped
 public class HttpMockService {
 
@@ -115,6 +120,11 @@ public class HttpMockService {
         return null;
     }
 
+    /**
+     * Checks whether a request matches a response's criteria. Body matching supports
+     * substring match or regex when the pattern is wrapped in {@code /pattern/}.
+     * A response with no criteria set matches any request.
+     */
     private boolean matchesResponse(MockResponse response,
                                     Map<String, String> headers,
                                     Map<String, String> queryParams,

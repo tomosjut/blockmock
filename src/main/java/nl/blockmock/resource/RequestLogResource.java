@@ -10,6 +10,7 @@ import nl.blockmock.service.RequestLogService;
 
 import java.util.List;
 
+/** REST API for querying request logs by endpoint, protocol, matched status, and statistics. ({@code /api/logs}) */
 @Path("/api/logs")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)

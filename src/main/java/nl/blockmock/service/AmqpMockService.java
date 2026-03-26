@@ -18,6 +18,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Processes incoming AMQP messages: matches against enabled endpoints, logs the interaction,
+ * updates metrics, and sends a reply for REQUEST_REPLY endpoints.
+ * DB operations run on a worker thread via {@code vertx.executeBlocking} to avoid blocking the event loop.
+ */
 @ApplicationScoped
 public class AmqpMockService {
 

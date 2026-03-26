@@ -13,6 +13,12 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Abstract base for mock endpoints. Concrete subtypes ({@link HttpMockEndpoint}, {@link AmqpMockEndpoint})
+ * are stored in separate joined tables and distinguished by the {@code protocol} discriminant.
+ * Tracks aggregate metrics (total/matched/unmatched requests) and holds an optional
+ * {@code forcedResponse} used during test runs to override normal response selection.
+ */
 @Entity
 @Table(name = "mock_endpoint")
 @Inheritance(strategy = InheritanceType.JOINED)

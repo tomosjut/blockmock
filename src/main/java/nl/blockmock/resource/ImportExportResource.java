@@ -9,6 +9,7 @@ import nl.blockmock.service.TestSuiteExportService.TestSuiteExport;
 import nl.blockmock.service.TestSuiteExportService.ImportResult;
 import org.jboss.logging.Logger;
 
+/** REST API for exporting and importing test suites as portable JSON. ({@code /api/import-export}) */
 @Path("/api/import-export")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)

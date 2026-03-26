@@ -9,6 +9,12 @@ import org.jboss.logging.Logger;
 import java.time.LocalDateTime;
 import java.util.*;
 
+/**
+ * Exports a test suite (with its blocks, endpoints, scenarios, expectations, triggers) to a
+ * version-tagged JSON structure, and imports it back without IDs — matching on natural keys
+ * ({@code name}, {@code httpMethod+httpPath}, {@code amqpAddress}) to enable portability
+ * between environments.
+ */
 @ApplicationScoped
 public class TestSuiteExportService {
 
@@ -159,6 +165,11 @@ public class TestSuiteExportService {
     // Import
     // -------------------------------------------------------------------------
 
+    /**
+     * Imports a test suite from an export document. Existing endpoints and blocks are matched
+     * by natural key and reused; the suite itself is upserted by name. Triggers with a matching
+     * {@code (scenario, name)} are skipped to preserve idempotency on re-import.
+     */
     @Transactional
     public ImportResult importSuite(TestSuiteExport export) {
         ImportResult result = new ImportResult();

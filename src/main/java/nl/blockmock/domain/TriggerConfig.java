@@ -10,6 +10,11 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
+/**
+ * Abstract base for test triggers. Concrete subtypes ({@link HttpTriggerConfig}, {@link CronTriggerConfig},
+ * {@link AmqpTriggerConfig}) are stored in separate joined tables and distinguished by the {@code type} discriminant.
+ * A trigger may be associated with a {@link TestScenario} to auto-link its execution to a run.
+ */
 @Entity
 @Table(name = "trigger_config")
 @Inheritance(strategy = InheritanceType.JOINED)

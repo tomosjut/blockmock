@@ -8,6 +8,11 @@ import nl.blockmock.service.HttpMockService;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * JAX-RS catch-all handler for incoming mock requests at {@code /mock/**}.
+ * Strips the {@code /mock} prefix and delegates to {@link nl.blockmock.service.HttpMockService}
+ * for endpoint matching and response selection.
+ */
 @Path("/mock")
 public class HttpMockResource {
 

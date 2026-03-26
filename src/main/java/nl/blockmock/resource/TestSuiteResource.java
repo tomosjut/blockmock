@@ -12,6 +12,7 @@ import org.jboss.logging.Logger;
 
 import java.util.List;
 
+/** REST API for test suite and scenario CRUD, run lifecycle, and JUnit XML export. ({@code /api/test-suites}) */
 @Path("/api/test-suites")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
